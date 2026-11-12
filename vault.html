@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The cupping vault · Daniel Humphries</title>
+<meta name="description" content="Photograph the sample, talk through the cup, never lose a note again. A cupping record system built from Obsidian, a phone and Claude.">
+<meta name="theme-color" content="#d7dade">
+<link rel="canonical" href="https://nucleard.github.io/daniel/vault.html">
+<meta property="og:title" content="The cupping vault · Daniel Humphries">
+<meta property="og:description" content="Talk through the cup and the note is filed for you.">
+<meta property="og:image" content="https://nucleard.github.io/daniel/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/faculty-glyphic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* The cupping table at nine in the morning: perforated steel, cobalt sample trays, white cups.
+     Cool light, one blue. Nothing else on the site looks like this. */
+  :root {
+    --steel: #d7dade; --steel-2: #c5c9ce; --steel-dk: #8d939a; --ink: #15191f; --ink-soft: #4a525c; --ink-faint: #7a828c;
+    --cobalt: #1f4fa0; --cobalt-hi: #3b6cc4; --crema: #b98251; --brew: #4a2b19;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  html { background: var(--steel); }
+  body { color: var(--ink); font-size: 17px; line-height: 1.58; font-stretch: 95%; }
+  ::selection { background: var(--cobalt); color: #fff; }
+  .top { position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); left: 18px; z-index: 30; font: 700 13px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; text-decoration: none; }
+  .wrap { padding: 0 6vw; max-width: 1280px; margin: 0 auto; }
+
+  .table { position: relative; height: 78vh; min-height: 440px; overflow: hidden; }
+  #tbl { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .table .title { position: absolute; left: 6vw; bottom: 7vh; z-index: 2; max-width: 36rem; pointer-events: none; }
+  .kicker { font: 650 12.5px/1.3 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 1em; }
+  h1 { font-family: var(--display); font-weight: 400; font-size: clamp(54px, 7.5vw, 120px); line-height: .9; margin: 0 0 .3em; }
+  .table .title p { font-size: clamp(18px, 1.5vw, 21px); margin: 0; background: var(--steel); display: inline; box-decoration-break: clone; -webkit-box-decoration-break: clone; padding: 0 .2em; }
+  .table .title { left: calc(6vw - 1.4rem); padding: 1.1rem 1.4rem 1.3rem; background: rgba(215, 218, 222, .95); box-shadow: 0 6px 24px rgba(30, 36, 46, .2); }
+  .hint { position: absolute; right: 6vw; bottom: 7vh; font: 600 12px/1.3 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); background: var(--steel); padding: 2px 6px; }
+
+  h2 { font-family: var(--display); font-weight: 400; font-size: clamp(32px, 3.4vw, 52px); line-height: 1; margin: 0 0 .5em; }
+  p { margin: 0 0 1em; }
+  .soft { color: var(--ink-soft); }
+  section { padding: 12vh 0 0; }
+
+  /* the three stages */
+  .stages { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 0; margin-top: 2.2rem; border-top: 2px solid var(--ink); }
+  .stage { padding: 1.1rem 1.4rem 1.4rem 0; min-height: 30rem; }
+  .stage + .stage { padding-left: 1.4rem; border-left: 1px solid var(--steel-dk); }
+  .stage.wide { grid-column: 1 / -1; min-height: 0; padding-left: 0; border-left: 0; border-top: 1px solid var(--steel-dk); }
+  .stage h3 { font: 700 12px/1.3 var(--sans); letter-spacing: .16em; text-transform: uppercase; margin: 0 0 1rem; display: flex; justify-content: space-between; }
+  .stage h3 span { color: var(--ink-faint); font-weight: 600; }
+  .wave { height: 44px; display: flex; align-items: center; gap: 2px; margin-bottom: 1rem; }
+  .wave i { flex: 1; background: var(--cobalt); height: 4%; transition: height .12s linear; }
+  .said { font-size: 16px; line-height: 1.6; color: var(--ink); min-height: 12em; }
+  .said .w { opacity: .18; transition: opacity .2s; }
+  .said .w.on { opacity: 1; }
+  .said mark { background: none; color: var(--cobalt); font-weight: 650; }
+  pre.md { margin: 0; font: 400 13.5px/1.62 var(--mono); white-space: pre-wrap; word-break: break-word; color: var(--ink); min-height: 20em; }
+  pre.md .k { color: var(--ink-faint); }
+  pre.md .l { color: var(--cobalt); }
+  pre.md .h { font-weight: 500; }
+  pre.md .cur { display: inline-block; width: .55em; height: 1.1em; vertical-align: -2px; background: var(--cobalt); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  #graph { width: 100%; height: 30rem; display: block; touch-action: pan-y; }
+  .legend { font: 500 12px/1.6 var(--mono); color: var(--ink-soft); margin: .2rem 0 .6rem; display: flex; flex-wrap: wrap; gap: .2rem 1.4rem; }
+  .legend i { display: inline-block; width: 10px; height: 10px; margin-right: .45em; vertical-align: -1px; box-sizing: border-box; }
+  .legend .k-coffee { background: var(--ink); border-radius: 50%; }
+  .legend .k-tag { background: #fff; border: 2px solid var(--cobalt); border-radius: 50%; }
+  .legend .k-process { background: var(--ink); }
+  .legend .k-note { background: #6d747c; border-radius: 50%; width: 6px; height: 6px; vertical-align: 1px; }
+  .legend .k-lot { border: 1.5px solid #6d747c; transform: rotate(45deg) scale(.8); }
+  .legend .k-new { background: var(--cobalt); border-radius: 50%; }
+  .count { font: 500 13px/1.4 var(--mono); color: var(--ink-soft); }
+  .replay { all: unset; cursor: pointer; font: 700 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; border-bottom: 1.5px solid currentColor; margin-top: 1.4rem; display: inline-block; }
+  .replay:focus-visible { outline: 1px dashed currentColor; outline-offset: 4px; }
+
+  /* try your own */
+  .try { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.2rem; margin-top: 1.6rem; }
+  .try textarea { all: unset; box-sizing: border-box; width: 100%; min-height: 13rem; border: 1.5px solid var(--ink); background: #e4e7ea; padding: 14px 16px; font: 400 15.5px/1.6 var(--sans); white-space: pre-wrap; }
+  .try textarea:focus { border-color: var(--cobalt); }
+  .try .row { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .btn { all: unset; cursor: pointer; font: 700 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; padding: 10px 14px; border: 1.5px solid var(--ink); }
+  .btn[hidden] { display: none; }
+  .btn.solid { background: var(--cobalt); border-color: var(--cobalt); color: #fff; }
+  .btn[aria-pressed="true"] { background: var(--ink); color: var(--steel); }
+  .btn:focus-visible { outline: 1px dashed var(--ink); outline-offset: 3px; }
+  .try pre.md { border-top: 2px solid var(--ink); padding-top: 12px; min-height: 13rem; }
+  .fine { font-size: 13.5px; color: var(--ink-faint); max-width: 44rem; }
+
+  .rail { display: grid; grid-template-columns: 8rem minmax(0, 38rem); gap: 0 2rem; margin-top: 1.6rem; }
+  .rail dt { font: 700 12px/1.6 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); padding-top: .9rem; border-top: 1px solid var(--steel-dk); }
+  .rail dd { margin: 0; padding: .8rem 0 .6rem; border-top: 1px solid var(--steel-dk); }
+  .close { padding: 12vh 0 16vh; max-width: 44rem; }
+  .close a { font-weight: 650; text-decoration: none; border-bottom: 2px solid currentColor; }
+
+  @media (max-width: 900px) {
+    .stages { grid-template-columns: minmax(0, 1fr); }
+    .stage, .stage + .stage { padding: 1.1rem 0 1.4rem; border-left: 0; border-top: 1px solid var(--steel-dk); min-height: 0; }
+    .try { grid-template-columns: minmax(0, 1fr); }
+    .rail { grid-template-columns: minmax(0, 1fr); }
+    .rail dd { border-top: 0; padding-top: .2rem; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<a class="top" href="index.html">Daniel Humphries</a>
+<a class="contact" href="mailto:coffeedataanalysis@proton.me">Contact</a>
+<a class="alt-mark" href="index.html" title="Back to the list">Coffee and AI · the cupping vault</a>
+
+<div class="table">
+  <canvas id="tbl" aria-label="A cupping table seen from above: sample trays and a row of cups" role="img"></canvas>
+  <div class="title">
+    <p class="kicker">Coffee × AI · The cupping table</p>
+    <h1>The cupping vault</h1>
+    <p>Photograph the sample, talk through the cup, never lose a note again.</p>
+  </div>
+  <p class="hint">Click a cup to break the crust</p>
+</div>
+
+<div class="wrap">
+  <section id="demo">
+    <h2>How one sample is filed</h2>
+    <p class="soft" style="max-width:44rem">A cupping record system built from Obsidian, a phone, and Claude. Every sample that comes into the roastery gets a photo and a spoken evaluation. The transcription is cleaned up, matched to the right coffee, and filed as a markdown note that links to the lot, the roast, and every other time I've cupped it.</p>
+    <div class="stages">
+      <div class="stage">
+        <h3>Said at the table <span id="clock">0:00</span></h3>
+        <div class="wave" id="wave" aria-hidden="true"></div>
+        <div class="said" id="said"></div>
+      </div>
+      <div class="stage">
+        <h3>Filed <span>Kenya Nyeri AA.md</span></h3>
+        <pre class="md" id="md" aria-live="off"></pre>
+      </div>
+      <div class="stage wide">
+        <h3>The vault <span id="count"></span></h3>
+        <p class="legend"><span><i class="k-coffee"></i>coffee</span><span><i class="k-tag"></i>descriptor</span><span><i class="k-process"></i>process</span><span><i class="k-note"></i>cupping note</span><span><i class="k-lot"></i>lot</span><span><i class="k-new"></i>the note just filed</span></p>
+        <canvas id="graph" aria-label="The vault as a graph. Coffees link to their process and to the descriptors in their notes, so bright acidity links Kenya Nyeri, Ethiopia Yirgacheffe and Colombia Huila." role="img"></canvas>
+        <p class="count" id="hoverline">Hover or tap a dot to see what it links to.</p>
+        <p class="count" id="linkline"></p>
+      </div>
+    </div>
+    <button class="replay" id="replay" type="button">Play it again</button>
+  </section>
+
+  <section id="try">
+    <h2>Say one yourself</h2>
+    <p class="soft" style="max-width:44rem">Type a cupping note the way you'd say it, or press the microphone and say it. Name a coffee, give a few scores in words or numbers, list what you taste.</p>
+    <div class="try">
+      <div>
+        <textarea id="mine" spellcheck="false" aria-label="Your cupping note">Ethiopia Guji natural, evaluation. Fragrance eight and a half, aroma eight. Strawberry, cacao nib, some jasmine. Acidity eight and a quarter, winey. Body round. Cup four a little fermenty. Total eighty-five and a half.</textarea>
+        <div class="row">
+          <button class="btn solid" id="file" type="button">File it</button>
+          <button class="btn" id="mic" type="button" aria-pressed="false" hidden>Microphone</button>
+        </div>
+      </div>
+      <pre class="md" id="md2" aria-live="polite"></pre>
+    </div>
+    <p class="fine" style="margin-top:1.4rem">This demo files your note with a few hundred lines of plain rules, in your browser. The real vault uses Claude for the reading and follows the same rule, which is to record only the numbers that were said.</p>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <p class="soft" style="max-width:44rem">I have cupped professionally for twenty years and most of those notes are gone. They were on paper sheets, in an app that closed, and in spreadsheets that didn't match each other. Every cupper has this problem. The conventional fix is either a slow form or someone's proprietary software. I wanted something I'd actually use at the table, and that would still be readable in twenty years.</p>
+    <dl class="rail">
+      <dt>Capture</dt><dd>Photograph the sample bag or tray and talk. Formal SCA scoring and a casual impression both work.</dd>
+      <dt>Names</dt><dd>Coffee names get mangled by speech-to-text. A short protocol at the start of each dictation, plus a lookup against the vault's lot list, keeps "Suke Quto" filed as "Suke Quto".</dd>
+      <dt>Filing</dt><dd>Claude turns the transcript into a structured note with descriptors, scores if spoken, defects and context. It records only the numbers that were said.</dd>
+      <dt>Linking</dt><dd>Notes link to the green lot, the roast batch, and previous cuppings of the same coffee, so a lot's whole history is one click away.</dd>
+      <dt>Format</dt><dd>The archive is a folder of markdown text files that any tool can read. There is no database and no vendor.</dd>
+    </dl>
+    <p style="max-width:44rem;margin-top:2rem">Every cupping I've done since developing this in October 2025 is searchable. I'm even able to add in old notes I find in a drawer or on an ancient Google Drive. I can ask what a coffee tasted like six roasts ago and get my own words back. The <a href="query.html">roastery query system</a> grew directly out of this.</p>
+  </section>
+
+  <section class="close">
+    <p>If your business has information in too many places, coffee or not, write to <a href="mailto:coffeedataanalysis@proton.me">coffeedataanalysis@proton.me</a>.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+  // ================= the table =================
+  const tbl = $('#tbl'), tc = tbl.getContext('2d');
+  let TW = 0, TH = 0, DPR = 1, cups = [], motes = [];
+  function layoutTable() {
+    DPR = Math.min(2, devicePixelRatio || 1);
+    TW = tbl.clientWidth; TH = tbl.clientHeight;
+    tbl.width = TW * DPR; tbl.height = TH * DPR;
+    const narrow = TW < 700;
+    const n = narrow ? 4 : 6, r = Math.min(TW / (n * 3.1), TH * 0.11, 70);
+    const y = TH * (narrow ? 0.30 : 0.36);
+    const was = cups.map(u => u.broken);
+    cups = [];
+    for (let i = 0; i < n; i++) {
+      const x = TW * (narrow ? 0.14 : 0.30) + i * (TW * (narrow ? 0.72 : 0.62) / (n - 1));
+      cups.push({ x, y, r, broken: was[i] || 0, tint: i });
+    }
+    drawStatic();
+  }
+  // the steel and the trays never change: draw them once per layout
+  let bg = null;
+  function drawStatic() {
+    bg = document.createElement('canvas');
+    bg.width = TW * DPR; bg.height = TH * DPR;
+    const c = bg.getContext('2d');
+    c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    c.fillStyle = '#c9cdd2'; c.fillRect(0, 0, TW, TH);
+    // perforated steel
+    c.fillStyle = '#aeb3b9';
+    const s = 11;
+    for (let y = (TH % s) / 2; y < TH; y += s) for (let x = ((y / s) % 2 ? s / 2 : 0); x < TW; x += s) { c.beginPath(); c.arc(x, y, 2.3, 0, 6.2832); c.fill(); }
+    // cobalt trays with green and roasted samples, top edge
+    // Light comes from the top left, so shadows fall to the bottom right, as they do under the cups.
+    const tw = Math.min(190, TW / 6), th = tw * 0.6, rnd = mulberry32(318);
+    const rr = (x, y, w, h, r) => { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); };
+    const GREEN = { base: ['#9aa57c', '#8f9c78', '#a5aa86', '#879a80'], hi: '#d3d8b6', edge: '#566246', crease: '#4f5a3e', skin: 'rgba(232,228,200,.75)' };
+    const ROAST = { base: ['#6a4226', '#5a3620', '#734a2b', '#4f2f1c'], hi: '#b07c50', edge: '#25140a', crease: '#1c0f07', skin: 'rgba(214,170,120,.4)' };
+    const codes = ['ET-2291', 'ET-2291', 'KE-4417', 'KE-4417', 'CO-0388'];
+    for (let i = 0; i < 5; i++) {
+      const x = (TW >= 1000 ? TW * 0.06 + 640 : TW * 0.06) + i * (tw + 22), y = TH * 0.61 + (i % 2) * 6;
+      if (x + tw > TW * 0.97) break;
+      if (TW < 700 && i > 2) break;
+      const rad = th * 0.2, rim = tw * 0.055;
+      // the tray: shadow on the table, moulded body, lit rim, sunken well
+      c.save(); c.shadowColor = 'rgba(24,32,48,.42)'; c.shadowBlur = 14; c.shadowOffsetX = 5 * DPR; c.shadowOffsetY = 7 * DPR;
+      let g = c.createLinearGradient(x, y, x + tw, y + th); g.addColorStop(0, '#4179d6'); g.addColorStop(1, '#173f88');
+      c.fillStyle = g; rr(x, y, tw, th, rad); c.fill(); c.restore();
+      c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 1.4; rr(x + 1.5, y + 1.5, tw - 3, th - 3, rad - 1); c.stroke();
+      const wx = x + rim, wy = y + rim, ww = tw - rim * 2, wh = th - rim * 2, wr = rad * 0.7;
+      c.fillStyle = '#12336f'; rr(wx, wy, ww, wh, wr); c.fill();
+      c.save(); rr(wx, wy, ww, wh, wr); c.clip();
+      // beans in two layers on a jittered grid, so the well is full and the top layer overlaps the lower one
+      const P = i % 2 === 0 ? GREEN : ROAST, L = tw * (i % 2 === 0 ? 0.07 : 0.076), W = L * 0.7;
+      for (let layer = 0; layer < 2; layer++) {
+        const sx = L * 0.8, sy = W * 0.86;
+        for (let gy = wy - sy; gy < wy + wh + sy; gy += sy) for (let gx = wx - sx + (Math.round(gy / sy) % 2) * sx / 2; gx < wx + ww + sx; gx += sx) {
+          if (layer === 1 && rnd() < 0.3) continue;
+          const bx = gx + (rnd() - 0.5) * sx * 0.9, by = gy + (rnd() - 0.5) * sy * 0.9, ang = rnd() * Math.PI, sc = 0.86 + rnd() * 0.28;
+          const l = L * sc / 2, w = W * sc / 2;
+          c.fillStyle = 'rgba(0,0,0,.42)'; c.beginPath(); c.ellipse(bx + 1.3, by + 1.9, l, w, ang, 0, 6.2832); c.fill();
+          g = c.createRadialGradient(bx - l * 0.35, by - w * 0.5, 0.5, bx, by, l * 1.05);
+          g.addColorStop(0, P.hi); g.addColorStop(0.45, P.base[Math.floor(rnd() * 4)]); g.addColorStop(1, P.edge);
+          c.fillStyle = g; c.beginPath(); c.ellipse(bx, by, l, w, ang, 0, 6.2832); c.fill();
+          if (layer === 0) { c.fillStyle = 'rgba(0,0,0,.22)'; c.fill(); }
+          if (rnd() < 0.68) {
+            // flat side up: the centre cut, a shallow S, with a line of silverskin beside it
+            c.save(); c.translate(bx, by); c.rotate(ang); c.lineCap = 'round';
+            const flip = rnd() < 0.5 ? 1 : -1;
+            c.strokeStyle = P.skin; c.lineWidth = 0.9; c.beginPath(); c.moveTo(-l * 0.74, 0.8); c.bezierCurveTo(-l * 0.25, w * 0.34 * flip + 0.8, l * 0.25, -w * 0.34 * flip + 0.8, l * 0.74, 0.8); c.stroke();
+            c.strokeStyle = P.crease; c.lineWidth = 1.25; c.beginPath(); c.moveTo(-l * 0.76, 0); c.bezierCurveTo(-l * 0.25, w * 0.34 * flip, l * 0.25, -w * 0.34 * flip, l * 0.76, 0); c.stroke();
+            c.restore();
+          }
+        }
+      }
+      // the rim's shadow falling onto the beans along the top and left of the well
+      g = c.createLinearGradient(0, wy, 0, wy + wh * 0.22); g.addColorStop(0, 'rgba(6,14,34,.6)'); g.addColorStop(1, 'rgba(6,14,34,0)'); c.fillStyle = g; c.fillRect(wx, wy, ww, wh * 0.22);
+      g = c.createLinearGradient(wx, 0, wx + ww * 0.1, 0); g.addColorStop(0, 'rgba(6,14,34,.5)'); g.addColorStop(1, 'rgba(6,14,34,0)'); c.fillStyle = g; c.fillRect(wx, wy, ww * 0.1, wh);
+      c.restore();
+      c.strokeStyle = 'rgba(8,20,48,.55)'; c.lineWidth = 1; rr(wx, wy, ww, wh, wr); c.stroke();
+      // the sample tag tucked under the corner
+      c.save(); c.translate(x + tw - 6, y - 4); c.rotate(i % 2 ? 0.05 : -0.06);
+      c.shadowColor = 'rgba(24,32,48,.3)'; c.shadowBlur = 5; c.shadowOffsetY = 2 * DPR;
+      c.fillStyle = '#fbfaf6'; c.fillRect(-tw * 0.5, -9, tw * 0.5, 18); c.shadowColor = 'transparent';
+      c.fillStyle = '#2a3038'; c.font = '600 ' + Math.max(9, tw * 0.058) + 'px ui-monospace, Consolas, monospace'; c.textBaseline = 'middle';
+      c.fillText(codes[i] + (i % 2 === 0 ? ' green' : ' roast'), -tw * 0.5 + 6, 0.5);
+      c.restore();
+    }
+  }
+  function drawTable(t) {
+    const c = tc;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    if (bg) c.drawImage(bg, 0, 0);
+    c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    // cups
+    cups.forEach((u, i) => {
+      const r = u.r, k = 1 - u.broken, disc = q => { c.beginPath(); c.arc(u.x, u.y, q, 0, 6.2832); c.fill(); };
+      // soft shadow on the table, to the bottom right
+      let g = c.createRadialGradient(u.x + r * 0.1, u.y + r * 0.14, r * 0.7, u.x + r * 0.1, u.y + r * 0.14, r * 1.3);
+      g.addColorStop(0, 'rgba(30,36,46,.42)'); g.addColorStop(1, 'rgba(30,36,46,0)');
+      c.fillStyle = g; c.beginPath(); c.arc(u.x + r * 0.1, u.y + r * 0.14, r * 1.3, 0, 6.2832); c.fill();
+      // porcelain: the rim catches the light, the inside wall is shaded on the lit side, which reads as a bowl
+      g = c.createLinearGradient(u.x - r, u.y - r, u.x + r, u.y + r); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#cfcdc6');
+      c.fillStyle = g; disc(r);
+      g = c.createLinearGradient(u.x - r, u.y - r, u.x + r, u.y + r); g.addColorStop(0.1, '#b4b1a9'); g.addColorStop(0.55, '#e9e7e1'); g.addColorStop(0.95, '#fdfcfa');
+      c.fillStyle = g; disc(r * 0.9);
+      c.strokeStyle = 'rgba(255,255,255,.95)'; c.lineWidth = Math.max(1, r * 0.03); c.beginPath(); c.arc(u.x, u.y, r * 0.95, Math.PI * 0.85, Math.PI * 1.65); c.stroke();
+      c.strokeStyle = 'rgba(40,44,52,.16)'; c.lineWidth = 1; c.beginPath(); c.arc(u.x, u.y, r - 0.5, -0.3, 1.9); c.stroke();
+      // the coffee
+      g = c.createRadialGradient(u.x - r * 0.2, u.y - r * 0.25, r * 0.05, u.x, u.y, r * 0.8); g.addColorStop(0, '#5c3722'); g.addColorStop(1, '#27150b');
+      c.fillStyle = g; disc(r * 0.8);
+      // the crust, until it's broken: a tan cap with grounds and a few bubbles
+      if (k > 0.01) {
+        c.globalAlpha = k;
+        g = c.createRadialGradient(u.x - r * 0.15, u.y - r * 0.2, r * 0.05, u.x, u.y, r * 0.8); g.addColorStop(0, '#c9935f'); g.addColorStop(1, '#8c5a35');
+        c.fillStyle = g; disc(r * 0.8);
+        c.globalAlpha = 1;
+      }
+      const cr = mulberry32(900 + i);
+      for (let n = 0; n < 420; n++) {
+        const a = cr() * 6.2832, d = Math.sqrt(cr()) * r * 0.77, shade = cr(), sz = 0.9 + cr() * r * 0.035;
+        const push = u.broken * (0.3 + 0.7 * (d / r)), dd = Math.min(d * (1 + push * 0.18), r * 0.785);
+        const al = 0.8 * k + 0.24 * u.broken * (d / (r * 0.77));
+        c.fillStyle = 'rgba(' + (shade > 0.66 ? '222,178,128,' : shade > 0.33 ? '150,98,58,' : '92,56,30,') + al + ')';
+        c.fillRect(u.x + Math.cos(a) * dd - sz / 2, u.y + Math.sin(a) * dd - sz / 2, sz, sz);
+      }
+      for (let n = 0; n < 10; n++) {
+        const a = cr() * 6.2832, d = Math.sqrt(cr()) * r * 0.66, br = r * (0.018 + cr() * 0.035);
+        c.fillStyle = 'rgba(255,238,210,' + 0.22 * k + ')'; c.strokeStyle = 'rgba(246,222,186,' + 0.8 * k + ')'; c.lineWidth = 0.8;
+        c.beginPath(); c.arc(u.x + Math.cos(a) * d, u.y + Math.sin(a) * d, br, 0, 6.2832); c.fill(); c.stroke();
+      }
+      if (u.broken > 0.05) {
+        // the ripple from the spoon, foam left at the wall, and the window reflected in the open surface
+        c.strokeStyle = 'rgba(200,150,95,' + (0.5 * u.broken * k) + ')'; c.lineWidth = 1.2;
+        c.beginPath(); c.arc(u.x, u.y, r * 0.8 * (0.5 + 0.5 * u.broken), 0, 6.2832); c.stroke();
+        c.strokeStyle = 'rgba(222,190,150,' + (0.6 * u.broken) + ')'; c.lineWidth = r * 0.045;
+        c.beginPath(); c.arc(u.x, u.y, r * 0.775, 0, 6.2832); c.stroke();
+        c.lineCap = 'round'; c.strokeStyle = 'rgba(255,255,255,' + (0.22 * u.broken) + ')'; c.lineWidth = r * 0.07;
+        c.beginPath(); c.arc(u.x, u.y, r * 0.58, Math.PI * 1.08, Math.PI * 1.4); c.stroke(); c.lineCap = 'butt';
+      }
+      // a spoon resting on the first cup
+      if (i === 0) {
+        const spoon = () => { c.beginPath(); c.ellipse(0, 0, r * 0.3, r * 0.21, 0, 0, 6.2832); c.fill(); c.beginPath(); c.moveTo(r * 0.24, -r * 0.055); c.lineTo(r * 1.65, -r * 0.04); c.arc(r * 1.65, 0, r * 0.04, -1.5708, 1.5708); c.lineTo(r * 0.24, r * 0.055); c.closePath(); c.fill(); };
+        c.save(); c.translate(u.x + r * 0.9, u.y - r * 0.9); c.rotate(-0.8);
+        c.save(); c.translate(r * 0.09, r * 0.03); c.fillStyle = 'rgba(30,36,46,.25)'; spoon(); c.restore();
+        g = c.createLinearGradient(0, -r * 0.21, 0, r * 0.21); g.addColorStop(0, '#f2f4f6'); g.addColorStop(1, '#8f959c');
+        c.fillStyle = g; spoon();
+        g = c.createLinearGradient(0, -r * 0.15, 0, r * 0.15); g.addColorStop(0, '#7f858c'); g.addColorStop(1, '#dfe2e6');
+        c.fillStyle = g; c.beginPath(); c.ellipse(-r * 0.01, 0, r * 0.23, r * 0.15, 0, 0, 6.2832); c.fill();
+        c.fillStyle = 'rgba(255,255,255,.7)'; c.beginPath(); c.ellipse(-r * 0.07, r * 0.05, r * 0.07, r * 0.035, 0.3, 0, 6.2832); c.fill();
+        c.restore();
+      }
+    });
+    // aroma rising off broken cups
+    motes.forEach(m => {
+      c.fillStyle = 'rgba(255,255,255,' + (m.a * 0.55) + ')';
+      c.beginPath(); c.arc(m.x, m.y, m.s, 0, 6.2832); c.fill();
+    });
+  }
+  let lastT = 0;
+  function tableLoop(now) {
+    requestAnimationFrame(tableLoop);
+    const dt = Math.min(0.05, (now - lastT) / 1000 || 0.016); lastT = now;
+    const rect = tbl.getBoundingClientRect();
+    if (rect.bottom < 0) return;
+    cups.forEach(u => {
+      if (u.breaking) { u.broken = Math.min(1, u.broken + dt * 1.8); if (u.broken >= 1) u.breaking = false; }
+      if (u.broken > 0.3 && u.broken < 1 && motes.length < 400) for (let k = 0; k < 3; k++) motes.push({ x: u.x + (Math.random() - 0.5) * u.r, y: u.y, vx: (Math.random() - 0.5) * 18, vy: -20 - Math.random() * 30, a: 1, s: 2 + Math.random() * 5 });
+    });
+    motes.forEach(m => { m.x += m.vx * dt + Math.sin(now / 400 + m.y * 0.05) * 0.4; m.y += m.vy * dt; m.a -= dt * 0.45; m.s += dt * 4; });
+    motes = motes.filter(m => m.a > 0);
+    drawTable(now);
+  }
+  tbl.addEventListener('click', e => {
+    const r = tbl.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    cups.forEach(u => { if (Math.hypot(x - u.x, y - u.y) < u.r && !u.broken) u.breaking = true; });
+  });
+  addEventListener('resize', () => { layoutTable(); if (reduce) drawTable(0); });
+  layoutTable();
+  if (reduce) { drawTable(0); } else requestAnimationFrame(tableLoop);
+
+  // ================= stage 1: the dictation =================
+  const SCRIPT = "Evaluation cupping, Daniel. Sample from Nyeri, Kenya, washed AA, lot KE-4417. Fragrance eight, aroma eight and a quarter. Blackcurrant, tomato leaf, a bit of grapefruit. Acidity bright, eight and a half. Body medium, silky. Aftertaste long, some black tea. Cup three has a little bit of baggy, the others are clean. Total eighty-six. I'd buy it if the price holds.";
+  const KEYS = /^(Nyeri|Kenya|AA|KE-4417|eight|quarter|half|eighty-six|Blackcurrant|tomato|leaf|grapefruit|black|tea|baggy|silky|three)[,.]?$/i;
+  const said = $('#said'), wave = $('#wave');
+  for (let i = 0; i < 48; i++) wave.appendChild(document.createElement('i'));
+  const bars = Array.from(wave.children);
+
+  const NOTE = [
+    ['k', '---'], ['k', 'date: '], ['', '2026-09-30'], ['n'],
+    ['k', 'cupper: '], ['', 'Daniel'], ['n'],
+    ['k', 'type: '], ['', 'Evaluation'], ['n'],
+    ['k', 'coffee: '], ['l', '"[[Kenya Nyeri Washed AA]]"'], ['n'],
+    ['k', 'lot: '], ['l', '[[KE-4417]]'], ['n'],
+    ['k', 'score: '], ['', '86'], ['n'],
+    ['k', '---'], ['n'], ['n'],
+    ['h', '# Kenya Nyeri Washed AA'], ['n'], ['n'],
+    ['k', 'Fragrance  '], ['', '8.00'], ['n'],
+    ['k', 'Aroma      '], ['', '8.25'], ['n'],
+    ['k', 'Acidity    '], ['', '8.50  bright'], ['n'],
+    ['k', 'Body       '], ['', 'medium, silky'], ['n'],
+    ['k', 'Aftertaste '], ['', 'long'], ['n'], ['n'],
+    ['k', 'Flavour: '], ['l', '[[blackcurrant]] [[tomato leaf]] [[grapefruit]] [[black tea]]'], ['n'],
+    ['k', 'Defects: '], ['', 'cup 3, slightly baggy. Others clean.'], ['n'],
+    ['k', 'Comments: '], ['', "Would buy if the price holds."], ['n'], ['n'],
+    ['k', 'Earlier: '], ['l', '[[2026-03-12 QC Kenya Nyeri AA]]'],
+  ];
+  const md = $('#md'), clock = $('#clock');
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function noteHTML(upto) {
+    let out = '', left = upto;
+    for (const [cls, txt] of NOTE) {
+      if (cls === 'n') { if (left <= 0) break; out += '\n'; left--; continue; }
+      const part = txt.slice(0, Math.max(0, left));
+      left -= txt.length;
+      out += cls ? '<span class="' + cls + '">' + esc(part) + '</span>' : esc(part);
+      if (left <= 0) break;
+    }
+    return out;
+  }
+  const NOTE_LEN = NOTE.reduce((a, [c, t]) => a + (c === 'n' ? 1 : t.length), 0);
+
+  // ================= stage 3: the vault graph =================
+  const gcv = $('#graph'), gx = gcv.getContext('2d');
+  // A coffee links to its process and to the descriptors written in its notes. Each cupping note and lot links to its coffee.
+  const COFFEES = [
+    ['Kenya Nyeri AA', 'washed', ['bright acidity', 'blackcurrant', 'black tea', 'citrus'], 'KE-4417'],
+    ['Ethiopia Yirgacheffe', 'washed', ['bright acidity', 'jasmine', 'citrus', 'black tea'], 'ET-2304'],
+    ['Ethiopia Guji', 'natural', ['strawberry', 'jasmine', 'winey', 'chocolate'], 'ET-2291'],
+    ['Colombia Huila', 'washed', ['bright acidity', 'stone fruit', 'caramel'], 'CO-0388'],
+    ['Brazil Sul de Minas', 'natural', ['chocolate', 'nutty', 'caramel'], 'BR-0417'],
+    ['Panama Volcán Gesha', 'washed', ['jasmine', 'stone fruit', 'citrus'], 'PA-0102'],
+    ['Costa Rica Tarrazú', 'honey', ['stone fruit', 'caramel', 'nutty'], 'CR-0431'],
+    ['Rwanda Nyamasheke', 'washed', ['black tea', 'citrus', 'caramel'], 'RW-0220'],
+    ['Burundi Kayanza', 'washed', ['blackcurrant', 'black tea', 'winey'], 'BI-0115'],
+  ];
+  const G = { nodes: [], links: [] };
+  const NB = new Map();   // node id -> the ids it links to
+  const link = (a, b) => { G.links.push([a, b]); [[a, b], [b, a]].forEach(([p, q]) => { if (!NB.has(p)) NB.set(p, new Set()); NB.get(p).add(q); }); };
+  const byId = id => G.nodes.find(n => n.id === id);
+  let heat = 1;           // the layout moves while this is above zero, then holds still
+  (function buildGraph() {
+    const rnd = mulberry32(2025), MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const add = (id, kind, label, r, x, y) => G.nodes.push({ id, kind, label, r, x, y, vx: 0, vy: 0 });
+    const tags = [...new Set(COFFEES.flatMap(c => c[2]))];
+    ['washed', 'natural', 'honey'].forEach((p, i) => add('p:' + p, 'process', p, 6, (i - 1) * 130, (rnd() - 0.5) * 60));
+    tags.forEach((t, i) => { const a = i / tags.length * 6.2832; add('d:' + t, 'tag', t, 5, Math.cos(a) * 240, Math.sin(a) * 110); });
+    COFFEES.forEach(([name, proc, ds, lot], i) => {
+      const a = i / COFFEES.length * 6.2832 + 0.3, x = Math.cos(a) * 400, y = Math.sin(a) * 170, id = 'c' + i;
+      add(id, 'coffee', name, 7, x, y);
+      link(id, 'p:' + proc); ds.forEach(t => link(id, 'd:' + t));
+      add('l' + i, 'lot', 'lot ' + lot, 3.6, x + (rnd() - 0.5) * 40, y + (rnd() - 0.5) * 40); link('l' + i, id);
+      const n = 3 + Math.floor(rnd() * 4);
+      for (let k = 0; k < n; k++) {
+        const label = (1 + Math.floor(rnd() * 28)) + ' ' + MON[Math.floor(rnd() * 12)] + ' · ' + (83 + Math.floor(rnd() * 18) / 4).toFixed(2);
+        add('n' + i + '-' + k, 'note', label, 2.6, x + (rnd() - 0.5) * 50, y + (rnd() - 0.5) * 50); link('n' + i + '-' + k, id);
+      }
+    });
+  })();
+  let newNode = null, hover = null;
+  function addNewNote() {
+    if (newNode) return;
+    newNode = { id: 'new', kind: 'new', label: 'Kenya Nyeri AA · today · 86.00', r: 6.5, x: 480, y: -210, vx: 0, vy: 0 };
+    G.nodes.push(newNode);
+    ['c0', 'l0', 'n0-0', 'n0-1', 'd:blackcurrant', 'd:black tea', 'd:citrus'].forEach(t => link('new', t));
+    heat = 0.5;
+  }
+  function resetGraph() {
+    if (!newNode) return;
+    if (hover === newNode) setHover(null);
+    G.nodes = G.nodes.filter(n => n !== newNode);
+    G.links = G.links.filter(l => l[0] !== 'new');
+    NB.delete('new'); NB.forEach(s => s.delete('new'));
+    newNode = null; heat = 0.3;
+  }
+  const LEN = { process: 130, tag: 100, lot: 36, note: 30, new: 70 };
+  function stepGraph() {
+    if (heat < 0.004) return;
+    const N = G.nodes;
+    for (let i = 0; i < N.length; i++) for (let j = i + 1; j < N.length; j++) {
+      const a = N[i], b = N[j]; let dx = a.x - b.x, dy = a.y - b.y; const d2 = dx * dx + dy * dy + 0.01;
+      if (d2 > 48000) continue;
+      const f = 48 * heat / d2; dx *= f; dy *= f; a.vx += dx; a.vy += dy; b.vx -= dx; b.vy -= dy;
+    }
+    G.links.forEach(([s, t]) => {
+      const a = byId(s), b = byId(t); if (!a || !b) return;
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
+      const k = (d - (LEN[a.kind === 'coffee' ? b.kind : a.kind] || 60)) * 0.02 * heat;
+      a.vx += dx / d * k; a.vy += dy / d * k; b.vx -= dx / d * k; b.vy -= dy / d * k;
+    });
+    N.forEach(n => {
+      n.vx += -n.x * 0.006 * heat; n.vy += -n.y * 0.02 * heat; n.vx *= 0.7; n.vy *= 0.7;
+      n.x = Math.max(-500, Math.min(500, n.x + n.vx)); n.y = Math.max(-215, Math.min(215, n.y + n.vy));
+    });
+    heat *= 0.992;
+  }
+  for (let i = 0; i < 600; i++) stepGraph();   // settle before anyone sees it
+  const graphScale = (w, h) => Math.min(w / 1060, h / 470);
+  function drawGraph(now) {
+    const w = gcv.clientWidth, h = gcv.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+    const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+    if (gcv.width !== bw || gcv.height !== bh) { gcv.width = bw; gcv.height = bh; }
+    gx.setTransform(dpr, 0, 0, dpr, w / 2 * dpr, h / 2 * dpr);
+    gx.clearRect(-w, -h, w * 2, h * 2);
+    const sc = graphScale(w, h), small = sc < 0.62;
+    const near = hover ? (NB.get(hover.id) || new Set()) : null;
+    const lit = n => !hover || n === hover || near.has(n.id);
+    G.links.forEach(([s, t]) => {
+      const a = byId(s), b = byId(t); if (!a || !b) return;
+      const on = hover ? (a === hover || b === hover) : s === 'new';
+      gx.strokeStyle = on ? '#1f4fa0' : 'rgba(21,25,31,' + (hover ? 0.06 : 0.16) + ')';
+      gx.lineWidth = on ? 1.7 : 1;
+      gx.beginPath(); gx.moveTo(a.x * sc, a.y * sc); gx.lineTo(b.x * sc, b.y * sc); gx.stroke();
+    });
+    gx.lineJoin = 'round';
+    G.nodes.forEach(n => {
+      const x = n.x * sc, y = n.y * sc, r = n.kind === 'new' ? n.r * (1 + 0.22 * Math.sin(now / 300)) : n.r;
+      gx.globalAlpha = lit(n) ? 1 : 0.2;
+      gx.beginPath();
+      if (n.kind === 'process') { gx.fillStyle = '#15191f'; gx.fillRect(x - r * 0.9, y - r * 0.9, r * 1.8, r * 1.8); }
+      else if (n.kind === 'lot') { gx.moveTo(x, y - r - 1); gx.lineTo(x + r + 1, y); gx.lineTo(x, y + r + 1); gx.lineTo(x - r - 1, y); gx.closePath(); gx.strokeStyle = '#6d747c'; gx.lineWidth = 1.5; gx.stroke(); }
+      else if (n.kind === 'tag') { gx.arc(x, y, r, 0, 6.2832); gx.fillStyle = '#fff'; gx.fill(); gx.strokeStyle = '#1f4fa0'; gx.lineWidth = 2; gx.stroke(); }
+      else { gx.arc(x, y, r, 0, 6.2832); gx.fillStyle = n.kind === 'coffee' ? '#15191f' : n.kind === 'new' ? '#1f4fa0' : '#6d747c'; gx.fill(); }
+      if (n === hover) { gx.beginPath(); gx.arc(x, y, r + 5, 0, 6.2832); gx.strokeStyle = '#1f4fa0'; gx.lineWidth = 1.6; gx.stroke(); }
+      const named = n.kind === 'coffee' || n.kind === 'tag' || n.kind === 'process';
+      if (hover ? lit(n) : (named && !small) || n.kind === 'new') {
+        gx.font = (n.kind === 'coffee' ? '600 12px' : '500 11px') + ' IBM Plex Mono, ui-monospace, Consolas, monospace';
+        const left = x > w / 2 - 170; gx.textAlign = left ? 'right' : 'left'; gx.textBaseline = 'middle';
+        const tx = x + (left ? -1 : 1) * (r + 6);
+        gx.lineWidth = 3.5; gx.strokeStyle = '#d7dade'; gx.strokeText(n.label, tx, y);
+        gx.fillStyle = n.kind === 'tag' || n.kind === 'new' ? '#1f4fa0' : n.kind === 'coffee' || n.kind === 'process' ? '#15191f' : '#4a525c';
+        gx.fillText(n.label, tx, y);
+      }
+    });
+    gx.globalAlpha = 1;
+  }
+  // hovering: the nearest dot within reach, and a plain sentence about it under the graph
+  const hoverline = $('#hoverline');
+  const list = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+  function describe(n) {
+    const nb = [...(NB.get(n.id) || [])].map(byId).filter(Boolean), of = k => nb.filter(m => m.kind === k).map(m => m.label);
+    if (n.kind === 'tag') return '"' + n.label + '" is in the notes on ' + list(of('coffee')) + '.';
+    if (n.kind === 'process') return n.label[0].toUpperCase() + n.label.slice(1) + ': ' + list(of('coffee')) + '.';
+    if (n.kind === 'coffee') return n.label + ': ' + of('process')[0] + ', ' + of('note').length + ' cupping notes, described as ' + list(of('tag')) + '.';
+    if (n.kind === 'lot') return n.label[0].toUpperCase() + n.label.slice(1) + ' of ' + of('coffee')[0] + '.';
+    if (n.kind === 'note') return 'Cupping note, ' + n.label.replace(' · ', ', scored ') + ', on ' + of('coffee')[0] + '.';
+    return 'The note just filed: linked to ' + of('coffee')[0] + ', its lot, two earlier cuppings, and the descriptors ' + list(of('tag')) + '.';
+  }
+  function setHover(n) {
+    if (n === hover) return;
+    hover = n; gcv.style.cursor = n ? 'pointer' : 'default';
+    hoverline.textContent = n ? describe(n) : 'Hover or tap a dot to see what it links to.';
+  }
+  function pick(e) {
+    const r = gcv.getBoundingClientRect(), sc = graphScale(r.width, r.height);
+    const px = e.clientX - r.left - r.width / 2, py = e.clientY - r.top - r.height / 2;
+    let best = null, bd = 16;
+    G.nodes.forEach(n => { const d = Math.hypot(n.x * sc - px, n.y * sc - py) - n.r; if (d < bd) { bd = d; best = n; } });
+    setHover(best);
+  }
+  gcv.addEventListener('pointermove', pick);
+  gcv.addEventListener('pointerdown', pick);
+  gcv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') setHover(null); });
+
+  // ================= the sequence =================
+  const count = $('#count'), linkline = $('#linkline');
+  let seq = null, shownK = -1, shownChars = -1;
+  function renderSaid(k) {
+    if (k === shownK) return;
+    shownK = k;
+    const words = SCRIPT.split(' ');
+    said.innerHTML = words.map((w, i) => '<span class="w' + (i < k ? ' on' : '') + '">' + (KEYS.test(w) ? '<mark>' + esc(w) + '</mark>' : esc(w)) + '</span>').join(' ');
+  }
+  function play() {
+    const words = SCRIPT.split(' ').length;
+    seq = { t0: performance.now(), words };
+    shownK = -1; shownChars = -1;
+    resetGraph();
+    count.textContent = '317 notes';
+    linkline.textContent = '';
+  }
+  function tickSeq(now) {
+    if (!seq) return;
+    const t = (now - seq.t0) / 1000;
+    const speak = 16;                                  // seconds of talking
+    const k = Math.min(seq.words, Math.floor(t / speak * seq.words));
+    renderSaid(k);
+    const talking = t < speak;
+    if (talking || !seq.quiet) {
+      bars.forEach((b, i) => { b.style.height = talking ? (8 + 88 * Math.abs(Math.sin(t * 7 + i * 0.7) * Math.sin(t * 2.3 + i * 0.21))) + '%' : '4%'; });
+      seq.quiet = !talking;
+    }
+    const secs = Math.min(t, speak);
+    clock.textContent = '0:' + String(Math.floor(secs)).padStart(2, '0');
+    const typeStart = speak + 0.6, typeDur = 9;
+    const chars = t < typeStart ? 0 : Math.min(NOTE_LEN, Math.floor((t - typeStart) / typeDur * NOTE_LEN));
+    const typing = chars < NOTE_LEN && t >= typeStart;
+    const key = chars + (typing ? 0.5 : 0);
+    if (key !== shownChars) { md.innerHTML = noteHTML(chars) + (typing ? '<span class="cur"></span>' : ''); shownChars = key; }
+    if (chars >= NOTE_LEN && !newNode) { addNewNote(); count.textContent = '318 notes'; linkline.textContent = 'The new note is linked to its coffee, its lot, three descriptors and two earlier cuppings.'; }
+  }
+  const demo = $('#demo');
+  function mainLoop(now) {
+    requestAnimationFrame(mainLoop);
+    const d = demo.getBoundingClientRect();
+    if (d.bottom < 0 || d.top > innerHeight) return;
+    tickSeq(now);
+    const r = gcv.getBoundingClientRect();
+    if (r.bottom < -100 || r.top > innerHeight + 100) return;
+    stepGraph();
+    drawGraph(now);
+  }
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && !seq) play(); }), { threshold: 0, rootMargin: '0px 0px -35% 0px' });
+  io.observe($('#demo'));
+  $('#replay').addEventListener('click', play);
+  renderSaid(0);
+  if (reduce) { seq = { t0: performance.now() - 60000, words: SCRIPT.split(' ').length }; }
+  requestAnimationFrame(mainLoop);
+
+  // ================= try your own: plain rules =================
+  const ATTR = ['fragrance', 'aroma', 'flavour', 'flavor', 'aftertaste', 'acidity', 'body', 'balance', 'sweetness', 'uniformity', 'clean cup', 'overall'];
+  const FLAVOURS = ['strawberry', 'raspberry', 'blueberry', 'blackberry', 'blackcurrant', 'cherry', 'red apple', 'green apple', 'apple', 'pear', 'peach', 'apricot', 'plum', 'grape', 'raisin', 'date', 'fig',
+    'lemon', 'lime', 'orange', 'grapefruit', 'bergamot', 'tangerine', 'mandarin', 'passion fruit', 'mango', 'pineapple', 'papaya', 'lychee', 'tropical fruit', 'melon',
+    'jasmine', 'rose', 'lavender', 'hibiscus', 'chamomile', 'orange blossom', 'floral', 'black tea', 'green tea', 'earl grey',
+    'chocolate', 'dark chocolate', 'milk chocolate', 'cacao nib', 'cocoa', 'caramel', 'toffee', 'brown sugar', 'molasses', 'honey', 'maple', 'vanilla', 'marzipan', 'nougat',
+    'almond', 'hazelnut', 'peanut', 'walnut', 'cinnamon', 'clove', 'cardamom', 'nutmeg', 'black pepper', 'ginger', 'tomato leaf', 'tomato', 'herbal', 'sage', 'mint', 'tobacco', 'cedar', 'wine', 'winey', 'rum', 'whisky'];
+  const DEFECTS = ['baggy', 'fermenty', 'fermented', 'phenolic', 'phenol', 'potato', 'mouldy', 'moldy', 'musty', 'earthy', 'woody', 'rubbery', 'past crop', 'onion', 'stinker', 'quakers', 'quaker', 'smoky', 'scorched', 'baked'];
+  const UNITS = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+  const TENS = { seventy: 70, eighty: 80, ninety: 90 };
+  function wordsToNum(s) {
+    s = s.toLowerCase().trim();
+    if (/^\d+(\.\d+)?$/.test(s)) return parseFloat(s);
+    let m = s.match(/^(seventy|eighty|ninety)(?:[- ](one|two|three|four|five|six|seven|eight|nine))?(?: and a (half|quarter))?$/);
+    if (m) return TENS[m[1]] + (m[2] ? UNITS[m[2]] : 0) + (m[3] === 'half' ? 0.5 : m[3] === 'quarter' ? 0.25 : 0);
+    m = s.match(/^(six|seven|eight|nine|ten)(?: and (a half|a quarter|three quarters)| (seventy[- ]five|twenty[- ]five|fifty))?$/);
+    if (m) {
+      let v = UNITS[m[1]];
+      const f = m[2] || m[3] || '';
+      if (/half|fifty/.test(f)) v += 0.5; else if (/three quarters|seventy/.test(f)) v += 0.75; else if (/quarter|twenty/.test(f)) v += 0.25;
+      return v;
+    }
+    return null;
+  }
+  const NUMWORD = '(\\d+(?:\\.\\d+)?|(?:seventy|eighty|ninety)(?:[- ](?:one|two|three|four|five|six|seven|eight|nine))?(?: and a (?:half|quarter))?|(?:six|seven|eight|nine|ten)(?: and (?:a half|a quarter|three quarters)| (?:seventy[- ]five|twenty[- ]five|fifty))?)';
+  function fileIt(text) {
+    const t = ' ' + text.replace(/\s+/g, ' ') + ' ';
+    const low = t.toLowerCase();
+    const fm = [];
+    const typ = /\bqc\b/i.test(t) ? 'QC' : /evaluation|sample|offer/i.test(t) ? 'Evaluation' : 'Cupping';
+    const first = text.split(/[,.]/)[0].trim();
+    const coffee = first.length < 60 && !/fragrance|aroma|acidity/i.test(first) ? first.replace(/\b(evaluation|qc|cupping)\b/ig, '').trim() : 'Unknown';
+    const scores = [];
+    ATTR.forEach(a => {
+      const re = new RegExp('\\b' + a + '\\b[^.,;]*?\\b' + NUMWORD + '\\b', 'i');
+      const m = low.match(re);
+      if (m) { const v = wordsToNum(m[1]); if (v != null && v >= 5 && v <= 10) scores.push([a, v, m[0]]); }
+    });
+    const total = low.match(new RegExp('\\b(?:total|score)\\b[^.]*?\\b' + NUMWORD + '\\b'));
+    const totalV = total ? wordsToNum(total[1]) : null;
+    const flav = FLAVOURS.filter(f => new RegExp('\\b' + f + '\\b').test(low)).filter((f, i, arr) => !arr.some(o => o !== f && o.includes(f)));
+    const defs = [];
+    DEFECTS.forEach(d => {
+      const m = low.match(new RegExp('([^.]*\\b' + d + '\\b[^.]*)'));
+      if (m) defs.push(m[1].trim());
+    });
+    const now = new Date();
+    const date = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    let out = '<span class="k">---\ndate: </span>' + date + '\n<span class="k">type: </span>' + typ + '\n<span class="k">coffee: </span><span class="l">"[[' + esc(coffee || 'Unknown') + ']]"</span>\n';
+    if (totalV != null) out += '<span class="k">score: </span>' + totalV + '\n';
+    out += '<span class="k">---</span>\n\n<span class="h"># ' + esc(coffee || 'Unknown') + '</span>\n\n';
+    if (scores.length) scores.forEach(([a, v]) => { out += '<span class="k">' + (a.charAt(0).toUpperCase() + a.slice(1)).padEnd(11) + '</span>' + v.toFixed(2) + '\n'; });
+    else out += '<span class="k">No scores said, so none filed.</span>\n';
+    out += '\n<span class="k">Flavour: </span>' + (flav.length ? '<span class="l">' + flav.map(f => '[[' + f + ']]').join(' ') + '</span>' : '<span class="k">none named</span>') + '\n';
+    if (defs.length) out += '<span class="k">Defects: </span>' + esc(defs.join('; ')) + '\n';
+    out += '\n<span class="k">Source: dictation, filed ' + new Date().toTimeString().slice(0, 5) + '</span>';
+    return out;
+  }
+  const mine = $('#mine'), md2 = $('#md2');
+  $('#file').addEventListener('click', () => { md2.innerHTML = fileIt(mine.value); });
+  md2.innerHTML = fileIt(mine.value);
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SR) {
+    const mic = $('#mic'); mic.hidden = false;
+    let rec = null;
+    mic.addEventListener('click', () => {
+      if (rec) { rec.stop(); return; }
+      rec = new SR(); rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = true;
+      let base = '';
+      mine.value = ''; mic.setAttribute('aria-pressed', 'true'); mic.textContent = 'Listening… press to stop';
+      rec.onresult = e => {
+        let fin = '', tmp = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) fin += e.results[i][0].transcript; else tmp += e.results[i][0].transcript; }
+        base += fin; mine.value = base + tmp;
+      };
+      rec.onend = () => { rec = null; mic.setAttribute('aria-pressed', 'false'); mic.textContent = 'Microphone'; md2.innerHTML = fileIt(mine.value); };
+      rec.onerror = () => { if (rec) rec.stop(); };
+      rec.start();
+    });
+  }
+})();
+</script>
+</body>
+</html>

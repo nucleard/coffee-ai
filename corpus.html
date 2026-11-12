@@ -1,0 +1,421 @@
+<title>Coffee Evaluation Corpus</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap">
+<style>
+/* Layout: one cool graphite ground; each section is a panel sized to screenshot at 1200 wide.
+   Two inks carry meaning: green = green coffee, coral = roasted coffee. No browns. */
+:root {
+  --ground: #0e1113;     /* page ground, graphite */
+  --panel: #161a1d;      /* panels */
+  --line: #283037;       /* rules and tracks */
+  --ink: #e7eaec;        /* main text */
+  --muted: #98a2aa;      /* secondary text */
+  --faint: #56606a;      /* tertiary text, wall words */
+  --green: #8fd3a8;      /* green coffee */
+  --roasted: #f2836b;    /* roasted coffee, cherry coral */
+  --display: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --body: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2 { font-family: var(--display); font-weight: 500; text-wrap: balance; margin: 0; }
+h2 { font-size: clamp(22px, 2.6vw, 30px); line-height: 1.2; letter-spacing: -.02em; }
+p { margin: 0; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.label {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- hero ---------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+}
+.wall {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-block: 18px;
+  pointer-events: none;
+  user-select: none;
+}
+.row { white-space: nowrap; overflow: hidden; }
+.track { display: inline-block; animation: drift linear infinite; }
+.row:nth-child(even) .track { animation-direction: reverse; }
+.w { color: var(--faint); margin-right: .9em; }
+.w.g { color: var(--green); }
+.w.r { color: var(--roasted); }
+@keyframes drift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.hero::after {
+  /* keeps the left column readable over the wall */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--ground) 0%, var(--ground) 40%, rgba(14,17,19,.84) 60%, rgba(14,17,19,.25) 100%);
+  pointer-events: none;
+}
+.hero .wrap { position: relative; z-index: 1; padding-block: 64px 56px; }
+.hero-text { max-width: 560px; display: grid; gap: 22px; }
+h1 { font-size: clamp(36px, 5vw, 58px); line-height: 1.05; letter-spacing: -.03em; font-weight: 700; }
+.lede { font-size: 15px; color: var(--muted); max-width: 38em; }
+.counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 32px;
+  margin-top: 10px;
+}
+.count { display: grid; gap: 2px; border-top: 1px solid var(--line); padding-top: 12px; }
+.count .num { font-size: clamp(30px, 3.6vw, 42px); line-height: 1.1; color: var(--ink); }
+.count .num.g { color: var(--green); }
+.count .num.r { color: var(--roasted); }
+.count span:last-child { color: var(--muted); font-size: 14px; }
+.waiting { font-size: 15px; color: var(--muted); }
+.waiting b { color: var(--ink); font-weight: 500; }
+
+/* ---------- sections ---------- */
+section .wrap { padding-block: 72px; display: grid; gap: 36px; }
+section + section { border-top: 1px solid var(--line); }
+.head { display: grid; gap: 10px; max-width: 46em; }
+.head p { color: var(--muted); }
+
+/* one page, as captured */
+.capture { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.source {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 26px 28px;
+  display: grid;
+  gap: 16px;
+}
+.source .url { font-family: var(--mono); font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+.source h3 { font-family: var(--display); font-weight: 500; font-size: 22px; margin: 0; }
+.source blockquote { margin: 0; font-size: 16px; line-height: 1.7; }
+mark { background: none; color: var(--green); border-bottom: 1px solid currentColor; }
+mark.f { color: var(--roasted); }
+.sheet { display: grid; border-top: 1px solid var(--line); }
+.sheet div {
+  display: grid;
+  grid-template-columns: 9.5em minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.sheet dt { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.sheet dd { margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 14px; padding: 1px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--green); }
+.sheet .c { color: var(--roasted); }
+.note { font-size: 14px; color: var(--muted); }
+
+/* fill rates, drawn like a cupping-form scale */
+.fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+.scale { display: grid; gap: 14px; }
+.bar { display: grid; grid-template-columns: 8.5em minmax(0, 1fr) 3.6em; gap: 14px; align-items: center; }
+.bar .name { font-size: 15px; }
+.bar .pct { text-align: right; color: var(--muted); font-size: 14px; }
+.ticks {
+  position: relative;
+  height: 14px;
+  background:
+    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 10%) ,
+    linear-gradient(var(--line), var(--line)) bottom / 100% 1px no-repeat;
+}
+.ticks i { position: absolute; left: 0; top: 3px; bottom: 3px; background: var(--green); }
+.bar.desc .ticks i { background: var(--roasted); }
+.scale-axis { display: grid; grid-template-columns: 8.5em minmax(0, 1fr) 3.6em; gap: 14px; }
+.scale-axis div { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--faint); }
+.bag { display: grid; gap: 16px; }
+.bag ul { list-style: none; margin: 0; padding: 0; display: grid; border-top: 1px solid var(--line); }
+.bag li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.bag li span:first-child { color: var(--ink); }
+.bag li span:last-child { color: var(--muted); }
+
+/* where it comes from */
+.where { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+.countries { display: grid; gap: 7px; }
+.crow { display: grid; grid-template-columns: 7.5em minmax(0, 1fr) 3.4em; gap: 12px; align-items: center; font-size: 14px; }
+.crow .t { height: 8px; background: var(--panel); }
+.crow .t i { display: block; height: 100%; background: var(--muted); }
+.crow .num { text-align: right; color: var(--muted); }
+.side { display: grid; gap: 30px; }
+.split { display: grid; gap: 10px; }
+.splitbar { display: flex; height: 26px; gap: 2px; }
+.splitbar span:nth-child(1) { background: var(--roasted); }
+.splitbar span:nth-child(2) { background: var(--green); }
+.splitbar span:nth-child(3) { background: var(--faint); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; color: var(--muted); }
+.legend b { font-weight: 500; }
+.legend .r { color: var(--roasted); }
+.legend .g { color: var(--green); }
+.facts { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.facts div { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.facts .num { font-size: 20px; }
+.facts p { color: var(--muted); font-size: 15px; }
+
+/* progress */
+.progress { display: grid; gap: 14px; }
+.pbar { display: flex; height: 40px; border: 1px solid var(--line); }
+.pbar .done { background: var(--green); }
+.pbar .todo {
+  flex: 1;
+  background: repeating-linear-gradient(135deg, var(--panel) 0 6px, var(--ground) 6px 12px);
+}
+.plegend { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 15px; color: var(--muted); }
+.plegend b { color: var(--ink); font-weight: 500; }
+.how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.how div { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 14px; }
+.how .num { font-size: 28px; }
+.how p { color: var(--muted); font-size: 15px; }
+
+footer .wrap { padding-block: 28px 48px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; font-family: var(--mono); }
+
+@media (max-width: 860px) {
+  .capture, .fields, .where { grid-template-columns: minmax(0, 1fr); }
+  .how { grid-template-columns: minmax(0, 1fr); }
+  .hero::after { background: rgba(14,17,19,.92); }
+  .hero .wrap { padding-block: 48px; }
+}
+@media (max-width: 480px) {
+  .counts { grid-template-columns: minmax(0, 1fr); }
+  .sheet div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .bar, .scale-axis { grid-template-columns: 6.5em minmax(0, 1fr) 3em; gap: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .track { animation: none; }
+}
+</style>
+
+<header class="hero">
+  <div class="wall" id="wall" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="hero-text">
+      <a href="index.html" style="position:fixed;top:14px;right:18px;z-index:50;font:500 12px/1 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:inherit">Coffee and AI</a>
+      <h1>Coffee Evaluation Corpus</h1>
+      <p class="lede">A database of what people write about how coffee tastes, collected from roasters, importers and coffee competitions, with the facts about each coffee kept alongside.</p>
+      <div class="counts">
+        <div class="count"><span class="num">28,488</span><span>coffees</span></div>
+        <div class="count"><span class="num g">77,844</span><span>flavour descriptors</span></div>
+        <div class="count"><span class="num">3,114</span><span>sources with at least one coffee</span></div>
+        <div class="count"><span class="num r">471,274</span><span>prices recorded, with dates</span></div>
+      </div>
+      <p class="waiting"><b class="num">103,369</b> more product pages are waiting to be read.</p>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="head">
+      <span class="label">One page, as captured</span>
+      <h2>How the values are extracted</h2>
+      <p>A local model reads each product page and fills in the facts and the flavour words. Nothing is translated or tidied at this stage. 98% of extracted values appear word for word on their page.</p>
+    </div>
+    <div class="capture">
+      <div class="source">
+        <span class="url">yorkcoffeeemporium.co.uk/products/brazil-arara</span>
+        <h3>Brazil Arara</h3>
+        <blockquote>“Expect <mark>ripe nectarine</mark> and <mark>sweet orange</mark>, layered with <mark>dark chocolate</mark>, a hint of <mark>clove</mark> and a <mark class="f">smooth</mark>, <mark class="f">creamy finish</mark>, perfect for slow sipping and savouring.”</blockquote>
+        <p class="note">The underlined words are the ones stored as flavour descriptors.</p>
+      </div>
+      <dl class="sheet">
+        <div><dt>Origin</dt><dd>Brazil</dd></div>
+        <div><dt>Region</dt><dd>Vale da Grama</dd></div>
+        <div><dt>Farm</dt><dd>Fazenda Cachoeira da Grama</dd></div>
+        <div><dt>Process</dt><dd>naturally processed</dd></div>
+        <div><dt>Altitude</dt><dd>1,250 metres</dd></div>
+        <div><dt>Descriptors</dt><dd class="chips"><span class="chip">ripe nectarine</span><span class="chip">sweet orange</span><span class="chip">dark chocolate</span><span class="chip">clove</span><span class="chip">smooth</span><span class="chip">creamy finish</span></dd></div>
+        <div><dt>Sold as</dt><dd class="c">roasted</dd></div>
+        <div><dt>Price</dt><dd><span class="num">11.00 GBP</span> for 200 g <span class="note">(55 GBP/kg)</span></dd></div>
+        <div><dt>Who is talking</dt><dd>the roaster, describing its own coffee</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="head">
+      <span class="label">What the pages say</span>
+      <h2>How often a shop page states each fact</h2>
+      <p>Measured on 6,013 coffees from shop pages on 15 October. Blends and house coffees often name no single origin, and harvest dates are rare.</p>
+    </div>
+    <div class="fields">
+      <div class="scale" id="scale"></div>
+      <div class="bag">
+        <p class="note">Anything else a page labels is kept too, as written: 217,140 extra labels so far. The most frequent ones on the night of 20 October:</p>
+        <ul>
+          <li><span>grind options</span><span class="num">860</span></li>
+          <li><span>bag size</span><span class="num">720</span></li>
+          <li><span>blend composition</span><span class="num">487</span></li>
+          <li><span>species</span><span class="num">249</span></li>
+          <li><span>certification</span><span class="num">229</span></li>
+          <li><span>competition result</span><span class="num">93</span></li>
+          <li><span>importer</span><span class="num">74</span></li>
+          <li><span>grade</span><span class="num">45</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="head">
+      <span class="label">Where it comes from</span>
+      <h2>Three kinds of source</h2>
+      <p>The sources are roasters writing for drinkers, importers writing for roasters, and competition juries scoring blind. Each kind is kept apart, so their language can be compared.</p>
+    </div>
+    <div class="where">
+      <div class="countries" id="countries"></div>
+      <div class="side">
+        <div class="split">
+          <span class="label">Coffees by how they are sold</span>
+          <div class="splitbar" role="img" aria-label="17,734 roasted, 9,263 green, 152 unknown or both">
+            <span style="flex: 17734"></span><span style="flex: 9263"></span><span style="flex: 152"></span>
+          </div>
+          <div class="legend">
+            <span><b class="r num">17,734</b> roasted</span>
+            <span><b class="g num">9,263</b> green</span>
+            <span><b class="num">152</b> unknown or both</span>
+          </div>
+        </div>
+        <div class="facts">
+          <div><span class="num">7,220</span><p>Cup of Excellence coffees with jury scores, from 232 competitions, 1999 to 2026</p></div>
+          <div><span class="num">6,766</span><p>of those with their auction price and buyer attached</p></div>
+          <div><span class="num">1,339</span><p>coffees from the CQI grading records</p></div>
+          <div><span class="num">296,417</span><p>pages collected so far, from catalogues to single product pages</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="head">
+      <span class="label">How far along</span>
+      <h2>Progress through the queue</h2>
+      <p>The reading runs at night on one graphics card at home, with no cloud service involved.</p>
+    </div>
+    <div class="progress">
+      <div class="pbar" role="img" aria-label="19,222 product pages read, 103,369 waiting"><span class="done" style="width: 15.7%"></span><span class="todo"></span></div>
+      <div class="plegend">
+        <span><b class="num">19,222</b> product pages read in 9 runs since 12 October</span>
+        <span><b class="num">103,369</b> waiting</span>
+      </div>
+    </div>
+    <div class="how">
+      <div><span class="num">~610</span><p>product pages read per hour on one RTX 3090</p></div>
+      <div><span class="num">98%</span><p>of extracted values found word for word on their page</p></div>
+      <div><span class="num">~71</span><p>more nights at the current pace, before new sources are added</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">Counts from the night-6 report, 21 October 2026. Fill rates from 15 October. Work in progress.</div>
+</footer>
+
+<script>
+const WORDS = ["peach", "lemon", "jasmine", "experimental", "exceptional specialty coffee", "Classic & Refined", "Sweet", "creamy", "delicate", "tones of milk chocolate", "kahlua", "sweet cream", "honey", "Low toned", "mellow", "sweet & complex", "exemplary", "Peach Rings", "Clementine", "Bergamot", "Vibrant", "refined", "effortless", "juicy clementine", "roasted plum cake", "champagne grape", "silky body", "Apricot", "citrus", "caramel", "Sweet aroma", "taste of black cherry", "dried apricot", "Chinese tea", "mango-like sweetness", "accompanying aftertaste", "Lemon grass", "Black cherry", "Mango", "fruit-forward cup", "soft sweetness", "silky structure", "Guava", "Persimmon", "Milk Chocolate", "smooth", "robust", "fruity aftertaste", "dark chocolate", "raw sugar", "marshmallow", "Chocolate", "Cherry", "high-acidity", "Juicy raisin notes", "zippy citrus", "Smooth Chocolate", "Sticky Toffee", "Raisin", "clean and balanced cup", "excellent body", "raisins", "toffee", "full-bodied", "aromatic", "low acidity", "smooth finish", "hunajamelonia", "caranbolaa", "hentoa kukkaisuutta", "cashewpähkinää", "kirsikan makeutta", "Candied pecans", "green fig", "watermelon", "maple", "bourbon", "vanilla", "gran cuerpo", "dulzor", "mora", "brownie", "golosina", "granola", "red apple", "Red currant", "blackberry", "rosehip", "ripe nectarine", "fragrant jasmine", "pineapple-like brightness", "elegant", "silky mouthfeel", "frutti di bosco", "fragola", "lampone", "pompelmo", "limone", "dolce", "frutti viola", "eleganti", "succosi", "mouthfeel", "elegante", "pulito", "delicato", "bassa corposità", "aftertaste elegante", "spziata", "ginger", "Freschezza", "delicatezza", "SCORZA DI LIMONE", "ZENZERO", "bright", "fruit-forward", "Juicy strawberry", "zesty grapefruit", "floral hibiscus finish", "lively and refreshing", "Gingerbread", "pecan", "roasted chocolatey", "buttery", "toasted southern pecans", "drizzled with caramel", "Rich & Smooth", "rich with sweetness", "Dark Caramel", "Roasted Jasmine", "Creamy Sesame", "Baguette", "Mandarin Orange", "Creme Brulee", "un peu acidulé", "floral", "sucré", "Cassonade", "pêche", "marmelade", "rich caramel sweetness", "smokey undertones", "subtle cedar notes", "Deliciously smooth", "decadent chocolate", "heavy body", "mellow acidity", "Malt", "Cocoa", "Lychee", "Red Berries", "cinnamon rolls", "pumpkin", "sweetness", "spice", "silky-smooth", "Raspberry", "Orange", "Pomegranate", "Black Tea", "bright and juicy", "vibrant red-fruit sweetness", "orange citrus", "delicate black tea character", "structure", "wonderfully clean finish", "bright without being sharp", "fruit", "Traditional maple flavor", "classic caramel", "vanilla custard", "chocolate cake", "warming spices", "warm spice", "chocolate-cake sweetness", "fruit-tinged lift", "red wine", "bright florals", "malted-milk candies", "oolong", "nutty character", "balanced body", "rich", "nutty flavor", "notes of brown sugar", "rich whiskey", "butterscotch", "Golden Grahams", "Turbinado Sugar", "Lime", "Vanilla Frosting", "mandarin", "bold and full-bodied", "rich chocolate", "earthy flavors", "hint of nuttiness", "sweet and savory notes", "lovely crema", "well balanced flavour", "Fruity", "Stone fruits", "bold", "velvety smoothness", "sweet dark caramel body", "full body", "citrus-like acidity", "baker's chocolate", "nougat", "toasted marshmallow", "very traditional", "approachable", "med-full body", "low acid", "fudgey", "Cocoa Nibs", "Candied Citrus", "Brazil Nuts", "candied citrus acidity", "Lemongrass", "Fig Jam", "Chocolate Fudge", "flavourful punch", "great créma", "creamy and rich cup", "soft cocoa notes", "fruity and bright", "jammy fruit tropical", "juicy and sweet", "intense", "sweet orange notes", "juicy acidity", "delicate mouthfeel", "Very clean expression", "juicy", "Leichte Fruchtnoten", "Bitterschokolade", "gerösteter Haselnuss", "vollen Körper", "erstklassigen Crèma", "Intenso", "ben cremoso", "sciropposo", "Fragrante", "monocorde", "tannico", "Cacao", "Cioccolato", "Alto tenore di Caffeina", "Basso tenore di acidità", "Media sensazione amara", "acid", "bitter", "Round body", "spicy notes", "chocolate aftertaste", "considerable body", "regional fruit flavor", "clean and complex cup", "outstanding acidity", "citrus aromas", "citrus and sweet balances", "サントスの軽い風味", "コロンビアのコク", "適度な苦み", "コクのある", "バランスの良い味わい", "fig", "berry like notes", "Tangerine", "Dried Cranberry", "Orange Marmalade", "sweet base", "bright fruit notes", "tanginess", "brighter", "tart note", "autumnal flavors", "almond", "dried fruit", "mild acidity in the body", "fruits", "deep chocolate", "light florals", "Strawberry", "Sangria", "lactic body", "nutty", "caramel sweetness", "cinnamon", "blueberry", "Fleuri", "chocolat", "noisette", "Ausgewogen und rund", "dunkler Schokolade", "Karamell", "feinen Beerenfruchtigkeit", "Süß", "klar strukturiert", "harmonisch bis in den Abgang", "crisp apricot", "honey sweetness", "soulful", "Balanced & Full", "Vibrant & Fruity", "香り高いアロマ", "チョコレートのようなコク", "深い味わい", "ダークチョコレート", "モラセス", "トーストされたモルト", "rich depth", "sweeter chocolatey character", "smokey", "gutsy", "big bold character", "nice acidity", "smooth body", "herb-like aromas", "walnut", "Green Apple", "mocha", "molasses", "rounded cup", "roasted nuts", "gentle caramel sweetness", "clean", "satisfying aftertaste", "rum flavor", "Rum", "Stewed Apple", "milk chocolate notes", "gently spiced profile", "body", "tmavá čokoláda", "pražené pekanové ořechy", "karamelová a medová sladkost", "třtinový cukr", "zralé tropické ovoce", "papáje", "červený pomeranč", "plné", "hedvábné a krémové tělo", "dlouhá", "hřejivá a sladká dochuť", "Rose", "Candied fruit", "Citrus fruit", "Berry jam", "slightly Nutty", "Malt Milkshake", "flavour-dense", "easy-going", "complex", "round", "flavour clarity", "complexity", "fabulous", "citrusy notes", "hints of berries", "avellana", "Graham", "Cranberry", "sweet orange", "clove", "creamy finish", "slight tartness", "very smooth", "Brown Sugar", "ripe cherry acidity", "lots of chocolate", "deep brown sugar sweetness", "Dried Fruits", "Citrusy", "S’mores", "какао", "нектарин", "апельсин", "яскрава кислотність", "середнє тіло", "легкість", "сік", "виразна фруктовість", "м’який післясмак", "hazelnut", "noisettes", "graham cracker", "cocoa powder", "plum", "dark chocolate forward", "Wild blueberries", "earthy", "naturally smooth and rich", "clarity", "Dark Fruits", "Nuts", "apple", "shortbread", "Dutch cocoa powder", "soft", "bittersweet chocolate", "rich dry fruit"];
+
+// Fill rates measured 2026-10-15 on 6,013 shop-page coffees (garden/specs/cupping-corpus-statistics-first-take.md).
+const FILL = [
+  ["descriptors", 93.4, "desc"],
+  ["origin", 67.5], ["process", 51.4], ["region", 49.6], ["roast", 45.6],
+  ["variety", 35.8], ["altitude", 29.4], ["producer", 27.8], ["harvest", 5.3]
+];
+
+// Sources by country, night-6 report. "USA" and "United States" are merged (1,381 + 31).
+const COUNTRIES = [
+  ["USA", 1412], ["UK", 460], ["Germany", 168], ["Switzerland", 107], ["Canada", 93],
+  ["Japan", 85], ["Australia", 75], ["France", 52], ["Spain", 49], ["Ireland", 39],
+  ["Sweden", 31], ["Italy", 30], ["Netherlands", 27], ["Poland", 23]
+];
+
+function seeded(seed) {
+  return () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+}
+
+function buildWall() {
+  const wall = document.getElementById("wall");
+  const rand = seeded(21);
+  const words = WORDS.slice();
+  for (let i = words.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [words[i], words[j]] = [words[j], words[i]];
+  }
+  const rows = 11;
+  const per = Math.ceil(words.length / rows);
+  for (let r = 0; r < rows; r++) {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.style.fontSize = (15 + (r % 4) * 3) + "px";
+    row.style.fontWeight = r % 3 === 0 ? "300" : "400";
+    const track = document.createElement("span");
+    track.className = "track";
+    track.style.animationDuration = (160 + (r * 37) % 140) + "s";
+    const slice = words.slice(r * per, (r + 1) * per);
+    let html = "";
+    slice.forEach((w, i) => {
+      const k = (i * 7 + r * 3) % 11;
+      const cls = k === 0 ? "w g" : k === 5 ? "w r" : "w";
+      html += `<span class="${cls}">${w.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</span>`;
+    });
+    track.innerHTML = html + html;
+    row.appendChild(track);
+    wall.appendChild(row);
+  }
+}
+
+function buildScale() {
+  const el = document.getElementById("scale");
+  let html = "";
+  FILL.forEach(([name, pct, kind]) => {
+    html += `<div class="bar ${kind || ""}"><span class="name">${name}</span>` +
+      `<span class="ticks"><i style="width:${pct}%"></i></span>` +
+      `<span class="pct num">${pct.toFixed(1)}%</span></div>`;
+  });
+  html += `<div class="scale-axis"><span></span><div><span>0</span><span>50</span><span>100</span></div><span></span></div>`;
+  el.innerHTML = html;
+}
+
+function buildCountries() {
+  const el = document.getElementById("countries");
+  const max = COUNTRIES[0][1];
+  let html = `<span class="label">Sources by country, top 14</span>`;
+  COUNTRIES.forEach(([name, n]) => {
+    html += `<div class="crow"><span>${name}</span><span class="t"><i style="width:${(n / max * 100).toFixed(1)}%"></i></span>` +
+      `<span class="num">${n.toLocaleString("en-US")}</span></div>`;
+  });
+  el.innerHTML = html;
+}
+
+buildWall();
+buildScale();
+buildCountries();
+</script>
