@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Field station · farm climate reports · Daniel Humphries</title>
+<meta name="description" content="Forty-five years of daily weather for any coffee farm, pulled live from ERA5 and corrected for the farm's elevation. The first stage of the farm climate reports.">
+<meta name="theme-color" content="#123a5e">
+<link rel="canonical" href="https://nucleard.github.io/daniel/climate.html">
+<meta property="og:title" content="Field station · Daniel Humphries">
+<meta property="og:description" content="Type in a farm's coordinates to see forty-five years of its daily rain.">
+<meta property="og:image" content="https://nucleard.github.io/daniel/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://archive-api.open-meteo.com" crossorigin>
+<link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/faculty-glyphic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* Cyanotype. One hue: Prussian blue, and the white that light leaves on it.
+     The rain carpet is the only picture: one pixel per day, one row per year. */
+  :root {
+    --blue: #123a5e; --blue-deep: #0c2b47; --blue-hi: #1b4a73;
+    --white: #eef3f6; --w2: rgba(238, 243, 246, .72); --w3: rgba(238, 243, 246, .46); --w4: rgba(238, 243, 246, .16);
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  html { background: var(--blue); }
+  body { color: var(--white); font-size: 17px; line-height: 1.58; font-stretch: 95%; }
+  ::selection { background: var(--white); color: var(--blue); }
+  .top { position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); left: 18px; z-index: 30; font: 700 13px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; text-decoration: none; }
+  .wrap { padding: 0 6vw; max-width: 1240px; margin: 0 auto; }
+  header { padding: 16vh 0 5vh; max-width: 46rem; }
+  .kicker { font: 650 12.5px/1.3 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--w2); margin: 0 0 1.2em; }
+  h1 { font-family: var(--display); font-weight: 400; font-size: clamp(56px, 8vw, 132px); line-height: .9; margin: 0 0 .35em; }
+  h2 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 3.2vw, 48px); line-height: 1; margin: 0 0 .55em; }
+  p { margin: 0 0 1em; }
+  .soft { color: var(--w2); }
+
+  /* the instrument */
+  form.coords { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-end; margin: 2.5rem 0 1rem; font: 500 13px/1.2 var(--mono); }
+  form.coords label { display: flex; flex-direction: column; gap: 6px; color: var(--w2); }
+  form.coords input { all: unset; width: 8.5em; border-bottom: 1.5px solid var(--w3); padding: 4px 0; color: var(--white); font: 500 17px/1.2 var(--mono); }
+  form.coords input:focus { border-color: var(--white); }
+  form.coords button, .presets button, .modes button { all: unset; cursor: pointer; font: 700 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; padding: 9px 12px; border: 1.5px solid var(--w3); }
+  form.coords button { background: var(--white); color: var(--blue); border-color: var(--white); }
+  form.coords button:hover, .presets button:hover, .modes button:hover { border-color: var(--white); }
+  .presets, .modes { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 1rem; }
+  .presets button[aria-pressed="true"], .modes button[aria-pressed="true"] { background: var(--w4); border-color: var(--white); }
+  button:focus-visible, form.coords button:focus-visible { outline: 1px dashed var(--white); outline-offset: 3px; }
+
+  .station { margin-top: 1.4rem; }
+  .status { font: 500 13px/1.5 var(--mono); color: var(--w2); min-height: 3em; }
+  .status b { color: var(--white); font-weight: 500; }
+  .carpet-wrap { position: relative; display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) 7rem; gap: 0 12px; margin-top: .6rem; }
+  .years, .totals { font: 500 10.5px/1 var(--mono); color: var(--w3); display: flex; flex-direction: column; }
+  .years span, .totals span { display: flex; align-items: center; }
+  .years span { justify-content: flex-end; }
+  .totals span { gap: 6px; }
+  .totals i { display: block; height: 4px; background: var(--w2); }
+  #carpet { width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; background: var(--blue-deep); }
+  .months { display: grid; grid-template-columns: repeat(12, 1fr); font: 500 10.5px/1 var(--mono); color: var(--w3); margin: 6px 0 0 calc(3.4rem + 12px); margin-right: calc(7rem + 12px); }
+  #probe { position: absolute; pointer-events: none; font: 500 12px/1.4 var(--mono); background: var(--white); color: var(--blue); padding: 3px 7px; white-space: nowrap; transform: translate(-50%, -140%); display: none; z-index: 2; }
+  .loading #carpet { animation: breathe 1.6s var(--ease) infinite alternate; }
+  @keyframes breathe { from { opacity: .35; } to { opacity: .8; } }
+
+  dl.readings { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0 2.4rem; margin: 2.2rem 0 0; }
+  dl.readings div { border-top: 1px solid var(--w4); padding: .8rem 0 1rem; }
+  dl.readings dt { font: 650 11.5px/1.3 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--w3); margin-bottom: .35em; }
+  dl.readings dd { margin: 0; font: 500 22px/1.2 var(--mono); }
+  dl.readings dd small { display: block; font-size: 12.5px; color: var(--w3); margin-top: .3em; }
+  .season { display: grid; grid-template-columns: repeat(12, 1fr); align-items: end; gap: 4px; height: 90px; margin-top: .6rem; }
+  .season i { display: block; background: var(--w2); min-height: 1px; }
+  .season-l { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; font: 500 10.5px/1 var(--mono); color: var(--w3); margin-top: 5px; }
+
+  section.method { padding: 14vh 0 4vh; }
+  .rail { display: grid; grid-template-columns: 9rem minmax(0, 38rem); gap: .2rem 2rem; }
+  .rail dt { font: 650 12px/1.6 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--w3); padding-top: .9rem; border-top: 1px solid var(--w4); }
+  .rail dd { margin: 0; padding: .8rem 0 .6rem; border-top: 1px solid var(--w4); }
+  section.cases { padding: 8vh 0 6vh; }
+  .case { max-width: 44rem; padding: 1.4rem 0 1.2rem; border-top: 1px solid var(--w4); }
+  .case h3 { font-family: var(--display); font-weight: 400; font-size: 28px; margin: 0 0 .4em; line-height: 1.05; }
+  .case .rep { font: 500 13px/1.4 var(--mono); color: var(--w3); }
+  .case .rep a { color: var(--white); }
+  /* a report in miniature: small page images in a box that scrolls */
+  .mini { width: min(100%, 360px); height: 470px; overflow-y: auto; overscroll-behavior: contain; margin: 1.1rem 0 .5rem; padding: 10px; background: var(--blue-deep); border: 1px solid var(--w4); border-radius: 4px; scrollbar-color: var(--w3) transparent; }
+  .mini img { display: block; width: 100%; height: auto; background: #fff; margin: 0 0 10px; box-shadow: 0 2px 10px rgba(0, 0, 0, .35); user-select: none; -webkit-user-drag: none; }
+  .mini img:last-child { margin-bottom: 0; }
+  .close { padding: 6vh 0 16vh; max-width: 44rem; }
+  .close a { font-weight: 650; text-decoration: none; border-bottom: 2px solid currentColor; }
+  .fine { font: 500 12.5px/1.6 var(--mono); color: var(--w3); max-width: 60rem; }
+
+  @media (max-width: 760px) {
+    .carpet-wrap { grid-template-columns: 2.2rem minmax(0, 1fr); }
+    .totals { display: none; }
+    .months { margin-left: calc(2.2rem + 12px); margin-right: 0; }
+    .rail { grid-template-columns: minmax(0, 1fr); }
+    .rail dt { border-top: 1px solid var(--w4); padding-bottom: 0; }
+    .rail dd { border-top: 0; padding-top: .2rem; }
+  }
+</style>
+</head>
+<body>
+<a class="top" href="index.html">Daniel Humphries</a>
+<a class="contact" href="mailto:coffeedataanalysis@proton.me">Contact</a>
+<a class="alt-mark" href="index.html" title="Back to the list">Coffee and AI · field station</a>
+
+<div class="wrap">
+  <header>
+    <p class="kicker">Coffee × AI · Farms</p>
+    <h1>Farm climate reports</h1>
+    <p>A pipeline that pulls four decades of daily satellite and reanalysis weather for any set of coordinates, corrects it for the farm's real elevation, and writes an analysis a farm can use, covering rainfall and dry spells, warming trends, day-night temperature range, harvest and drying windows, flowering triggers, and disease risk.</p>
+    <p class="soft">This page runs the first half of it live. Pick a coffee region or type a farm's coordinates and elevation, and it pulls every day since 1981 from the ERA5 reanalysis. The second half, interpreting the data for the farm, is the part I do myself.</p>
+  </header>
+
+  <div class="presets" id="presets" role="group" aria-label="Coffee regions"></div>
+  <form class="coords" id="coords">
+    <label>Latitude <input id="lat" inputmode="decimal" autocomplete="off" required></label>
+    <label>Longitude <input id="lon" inputmode="decimal" autocomplete="off" required></label>
+    <label>Farm elevation, m <input id="elev" inputmode="numeric" autocomplete="off"></label>
+    <button type="submit">Pull the record</button>
+  </form>
+
+  <div class="station" id="station">
+    <p class="status" id="status" aria-live="polite"></p>
+    <div class="modes" role="group" aria-label="What to draw">
+      <button type="button" data-mode="rain" aria-pressed="true">Rain</button>
+      <button type="button" data-mode="temp" aria-pressed="false">Temperature</button>
+      <button type="button" data-mode="dry" aria-pressed="false">Dry spells</button>
+    </div>
+    <div class="carpet-wrap" id="cw">
+      <div class="years" id="years" aria-hidden="true"></div>
+      <canvas id="carpet" width="366" height="45" role="img" aria-label="Daily rain, one row per year, one pixel per day"></canvas>
+      <div class="totals" id="totals" aria-hidden="true"></div>
+      <div id="probe"></div>
+    </div>
+    <div class="months" aria-hidden="true"><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span></div>
+    <dl class="readings" id="readings"></dl>
+  </div>
+
+  <section class="method">
+    <h2>How a report is made</h2>
+    <p class="soft" style="max-width:44rem">Most farms have no weather station and no history. The data exists, but it's raw, gridded, and at the wrong elevation. The numbers then have to be interpreted by someone who knows the farm.</p>
+    <dl class="rail">
+      <dt>Sources</dt><dd>NASA POWER and Open-Meteo, with 40 years of daily ERA5 data as the main source.</dd>
+      <dt>Elevation</dt><dd>Each grid cell has its own elevation, which is usually different from the farm's. Temperatures are corrected for the difference at the standard rate of 6.5 °C per 1,000 m.</dd>
+      <dt>Analysis</dt><dd>Python does the statistics. AI drafts the narrative from the finished numbers, and I edit it.</dd>
+      <dt>Output</dt><dd>Two documents per farm: a short executive summary and a full report with a section per question.</dd>
+    </dl>
+  </section>
+
+  <section class="cases" id="cases">
+    <h2>Farms so far</h2>
+    <!-- Reports are listed in REPORTS below. A report can also be shown as a scrolling miniature (pages: ..., see tools/report-pages.py). Add a pdf path (e.g. "reports/gesha-village-summary.pdf")
+         and it appears as a link; leave it null and the line reads "report on request". -->
+  </section>
+
+  <section class="close">
+    <p>If you run a farm, send me coordinates and I'll send you a report.</p>
+    <p><a id="mailto" href="mailto:coffeedataanalysis@proton.me?subject=Farm%20climate%20report">coffeedataanalysis@proton.me</a></p>
+    <p class="fine">Data on this page: ERA5 reanalysis via the Open-Meteo historical weather API, fetched by your browser when you press the button. Nothing is stored. Temperatures are corrected from the terrain elevation Open-Meteo reports to the farm elevation you enter, at 6.5 °C per 1,000 m. Trends are ordinary least squares on annual values; the R² is printed next to each trend so you can see how strong it is.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = s => document.querySelector(s);
+
+  const PRESETS = [
+    { name: 'Volcán, Panama', lat: 8.77, lon: -82.64, elev: 1450 },
+    { name: 'Huila, Colombia', lat: 1.85, lon: -76.05, elev: 1650 },
+    { name: 'Yirgacheffe, Ethiopia', lat: 6.16, lon: 38.20, elev: 1900 },
+    { name: 'Nyeri, Kenya', lat: -0.42, lon: 36.95, elev: 1750 },
+    { name: 'Sul de Minas, Brazil', lat: -22.12, lon: -45.13, elev: 1100 },
+    { name: 'Bukidnon, Philippines', lat: 8.10, lon: 125.00, elev: 1200 },
+  ];
+  // Reports: add a pdf path when one can be published.
+  const REPORTS = [
+    { farm: 'Gesha Village, Ethiopia', text: "Full climate analysis plus a Coffee Wilt Disease risk assessment, at Willem Boot's request.", pdf: null },
+    { farm: 'Finca La Cabra, Panama', pages: { dir: 'media/reports/la-cabra', ratio: 1.414 }, text: "Willem Boot's farm at Volcán in the Chiriquí highlands, at 1,480 m. Forty-four years of daily weather, 1981 to 2024, from the NASA POWER database, with temperatures corrected for the farm's elevation. The report has a section each on rainfall trends, dry spells, flowering, harvest, drying conditions, heavy rain and disease risk.", pdf: null },
+    // pages: small page images made by tools/report-pages.py. The box only appears once p01.jpg exists.
+    { farm: 'Fazenda Pedra Preta, Brazil', pages: { dir: 'media/reports/pedra-preta', ratio: 1.415 }, text: "Eduardo Ferreira de Sousa's farm in Manhuaçu, Minas Gerais. Agroforestry, careful with the land, and very good coffee; Coffee & Coconuts buys a full container from them this year. They had a weather station on the farm that had been logging for four years with nobody looking at the data. I took the whole record and wrote them a report: what each month looks like on their farm, how it has shifted over the four years, and how their readings compare to the official station in the nearest town. Not a full microclimate study, which would need readings from all around the farm, but far more than most farms ever learn about their own weather.", pdf: null },
+  ];
+
+  const FIRST = 1981, LAST = 2025, NY = LAST - FIRST + 1;
+  const cv = $('#carpet'), ctx = cv.getContext('2d');
+  cv.height = NY;
+  let data = null, mode = 'rain';
+
+  // --- UI scaffolding ---
+  const pres = $('#presets');
+  PRESETS.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = p.name; b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+    b.addEventListener('click', () => { setForm(p); pres.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); pull(); });
+    pres.appendChild(b);
+  });
+  function setForm(p) { $('#lat').value = p.lat; $('#lon').value = p.lon; $('#elev').value = p.elev; }
+  $('#coords').addEventListener('submit', e => { e.preventDefault(); pres.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', 'false')); pull(); });
+  document.querySelectorAll('.modes button').forEach(b => b.addEventListener('click', () => {
+    mode = b.dataset.mode;
+    document.querySelectorAll('.modes button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    paint();
+  }));
+  const yrs = $('#years'), tots = $('#totals');
+  function rowLabels() {
+    yrs.innerHTML = ''; tots.innerHTML = '';
+    for (let y = FIRST; y <= LAST; y++) {
+      const s = document.createElement('span'); s.textContent = (y % 5 === 0 || y === FIRST || y === LAST) ? y : ''; yrs.appendChild(s);
+      const t = document.createElement('span'); tots.appendChild(t);
+    }
+    sizeRows();
+  }
+  function sizeRows() {
+    const h = cv.getBoundingClientRect().height / NY;
+    yrs.querySelectorAll('span').forEach(s => { s.style.height = h + 'px'; });
+    tots.querySelectorAll('span').forEach(s => { s.style.height = h + 'px'; });
+  }
+  function sizeCanvas() {
+    const w = cv.getBoundingClientRect().width;
+    cv.style.height = Math.max(NY * 4, Math.min(NY * 9, w * 0.5)) + 'px';
+    sizeRows();
+  }
+  addEventListener('resize', sizeCanvas);
+
+  // cases
+  const cases = $('#cases');
+  REPORTS.forEach(r => {
+    const d = document.createElement('div'); d.className = 'case';
+    d.innerHTML = '<h3></h3><p class="soft"></p><p class="rep"></p>';
+    d.querySelector('h3').textContent = r.farm;
+    d.querySelector('.soft').textContent = r.text;
+    d.querySelector('.rep').innerHTML = r.pdf ? '<a href="' + r.pdf + '">Read the report (PDF)</a>' : 'Report on request.';
+    if (r.pages) {
+      // pages are numbered p01.jpg, p02.jpg, ...; each one that loads asks for the next, and the first miss ends it
+      const box = document.createElement('div'); box.className = 'mini'; box.hidden = true; box.tabIndex = 0;
+      box.setAttribute('aria-label', 'The ' + r.farm + ' report in miniature');
+      box.addEventListener('contextmenu', e => e.preventDefault());
+      d.insertBefore(box, d.querySelector('.rep'));
+      const next = n => {
+        const im = new Image(); im.alt = 'Report page ' + n; im.draggable = false; im.width = 460; im.height = Math.round(460 * r.pages.ratio);
+        im.onload = () => { box.appendChild(im); if (n === 1) { box.hidden = false; d.querySelector('.rep').textContent = 'The report in miniature. Scroll inside the box to look through it.'; } next(n + 1); };
+        im.src = r.pages.dir + '/p' + String(n).padStart(2, '0') + '.jpg';
+      };
+      if ('IntersectionObserver' in window) { const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); next(1); } }, { rootMargin: '600px' }); io.observe(d); } else next(1);
+    }
+    cases.appendChild(d);
+  });
+
+  // --- fetching ---
+  const status = $('#status'), station = $('#station');
+  let ctl = null;
+  function pull() {
+    const lat = parseFloat($('#lat').value), lon = parseFloat($('#lon').value), elev = parseFloat($('#elev').value);
+    if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) { status.textContent = 'Those coordinates are out of range. Latitude −90 to 90, longitude −180 to 180.'; return; }
+    const m = $('#mailto');
+    m.href = 'mailto:coffeedataanalysis@proton.me?subject=' + encodeURIComponent('Farm climate report') + '&body=' + encodeURIComponent('Coordinates: ' + lat + ', ' + lon + (isFinite(elev) ? '\nElevation: ' + elev + ' m' : '') + '\n\n');
+    if (ctl) { ctl.abort(); ctl = null; }
+    const key = 'fs:' + lat.toFixed(2) + ',' + lon.toFixed(2);
+    let cached = null;
+    try { cached = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch (e) { cached = null; }
+    if (cached) { ingest(cached, lat, lon, elev, true); return; }
+    ctl = new AbortController();
+    station.classList.add('loading');
+    const t0 = performance.now();
+    status.innerHTML = 'Asking ERA5 for every day at <b>' + lat.toFixed(2) + ', ' + lon.toFixed(2) + '</b> since 1 January ' + FIRST + '…';
+    const url = 'https://archive-api.open-meteo.com/v1/archive?latitude=' + lat + '&longitude=' + lon +
+      '&start_date=' + FIRST + '-01-01&end_date=' + LAST + '-12-31&daily=precipitation_sum,temperature_2m_mean&timezone=auto';
+    fetch(url, { signal: ctl.signal })
+      .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(j.reason || ('HTTP ' + r.status))))
+      .then(j => {
+        const pack = { t: j.daily.time, p: j.daily.precipitation_sum, m: j.daily.temperature_2m_mean, gridElev: j.elevation, ms: Math.round(performance.now() - t0) };
+        try { sessionStorage.setItem(key, JSON.stringify(pack)); } catch (e) { /* storage full or blocked: fine */ }
+        ingest(pack, lat, lon, elev, false);
+      })
+      .catch(err => {
+        if (err && err.name === 'AbortError') return;
+        station.classList.remove('loading');
+        status.innerHTML = 'The archive didn’t answer (' + String(err).slice(0, 80) + '). It rate-limits heavy requests; try again in a minute, or pick another region.';
+      });
+  }
+
+  // --- statistics ---
+  function ols(xs, ys) {
+    const n = xs.length; let sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0;
+    for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i]; syy += ys[i] * ys[i]; }
+    const b = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+    const r = (n * sxy - sx * sy) / Math.sqrt((n * sxx - sx * sx) * (n * syy - sy * sy));
+    return { slope: b, r2: r * r };
+  }
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const nice = d => { const [y, m, dd] = d.split('-'); return +dd + ' ' + MON[+m - 1] + ' ' + y; };
+
+  function ingest(pack, lat, lon, elev, fromCache) {
+    station.classList.remove('loading');
+    const corr = isFinite(elev) && isFinite(pack.gridElev) ? -(elev - pack.gridElev) * 0.0065 : 0;
+    const days = [];
+    for (let i = 0; i < pack.t.length; i++) {
+      const [y, m, d] = pack.t[i].split('-').map(Number);
+      if (y < FIRST || y > LAST) continue;
+      const doy = Math.floor((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 1)) / 86400000);
+      days.push({ date: pack.t[i], y, m, doy, p: pack.p[i], t: pack.m[i] == null ? null : pack.m[i] + corr });
+    }
+    data = { days, lat, lon, elev, gridElev: pack.gridElev, corr, at: new Map(days.map(d => [d.y * 1000 + d.doy, d])) };
+    // annual series
+    const years = [], rain = [], temp = [], rainy = [];
+    for (let y = FIRST; y <= LAST; y++) {
+      const ds = days.filter(d => d.y === y);
+      const rs = ds.filter(d => d.p != null), ts = ds.filter(d => d.t != null);
+      if (rs.length < 330) continue;
+      years.push(y);
+      rain.push(rs.reduce((a, d) => a + d.p, 0));
+      temp.push(ts.reduce((a, d) => a + d.t, 0) / ts.length);
+      rainy.push(rs.filter(d => d.p >= 1).length);
+    }
+    data.annual = { years, rain, temp, rainy };
+    // dry spells: consecutive days under 1 mm
+    let best = { len: 0 }, cur = 0, start = null;
+    days.forEach((d, i) => {
+      if (d.p != null && d.p < 1) { if (!cur) start = d.date; cur++; if (cur > best.len) best = { len: cur, start, end: d.date }; }
+      else cur = 0;
+      d.run = cur;
+    });
+    const wettest = days.reduce((a, d) => (d.p != null && d.p > (a ? a.p : -1)) ? d : a, null);
+    const monthly = Array.from({ length: 12 }, (_, m) => {
+      const ms = days.filter(d => d.m === m + 1 && d.p != null);
+      return ms.reduce((a, d) => a + d.p, 0) / years.length;
+    });
+    const rT = ols(years, rain), tT = ols(years, temp), dT = ols(years, rainy);
+    const meanRain = rain.reduce((a, b) => a + b, 0) / rain.length;
+    const meanT = temp.reduce((a, b) => a + b, 0) / temp.length;
+    const sgn = (v, n) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(n || 0);
+    const R = $('#readings');
+    const cell = (k, v, s) => '<div><dt>' + k + '</dt><dd>' + v + (s ? '<small>' + s + '</small>' : '') + '</dd></div>';
+    R.innerHTML =
+      cell('Rain, average year', Math.round(meanRain).toLocaleString('en-US') + ' mm', years[0] + ' to ' + years[years.length - 1]) +
+      cell('Rain trend', sgn(rT.slope * 10, 0) + ' mm per decade', 'R² ' + rT.r2.toFixed(2)) +
+      cell('Rainy days (1 mm+)', Math.round(rainy.reduce((a, b) => a + b, 0) / rainy.length) + ' a year', sgn(dT.slope * 10, 1) + ' per decade, R² ' + dT.r2.toFixed(2)) +
+      cell('Mean temperature', meanT.toFixed(1) + ' °C', isFinite(elev) ? 'corrected ' + sgn(corr, 1) + ' °C from ' + Math.round(pack.gridElev) + ' m terrain to ' + Math.round(elev) + ' m' : 'at ' + Math.round(pack.gridElev) + ' m terrain elevation') +
+      cell('Warming', sgn(tT.slope * 10, 2) + ' °C per decade', 'R² ' + tT.r2.toFixed(2)) +
+      cell('Wettest day', wettest ? wettest.p.toFixed(1) + ' mm' : '–', wettest ? nice(wettest.date) : '') +
+      cell('Longest dry spell', best.len + ' days', best.len ? nice(best.start) + ' to ' + nice(best.end) : '') +
+      '<div style="grid-column:1/-1"><dt>Rain by month, average</dt><dd><div class="season">' +
+      monthly.map(v => '<i style="height:' + (100 * v / Math.max.apply(null, monthly)).toFixed(1) + '%" title="' + Math.round(v) + ' mm"></i>').join('') +
+      '</div><div class="season-l">' + MON.map(m => '<span>' + m + '</span>').join('') + '</div></dd></div>';
+    // annual totals beside the carpet
+    const maxR = Math.max.apply(null, rain);
+    const spans = tots.querySelectorAll('span');
+    spans.forEach((s, i) => {
+      const k = years.indexOf(FIRST + i);
+      s.innerHTML = k < 0 ? '' : '<i style="width:' + (3.6 * rain[k] / maxR).toFixed(2) + 'rem"></i>' + Math.round(rain[k]);
+    });
+    status.innerHTML = '<b>' + days.length.toLocaleString('en-US') + ' days</b> at ' + lat.toFixed(2) + ', ' + lon.toFixed(2) +
+      (fromCache ? ', from this session' : ', fetched in ' + (pack.ms / 1000).toFixed(1) + ' s') + '. Hover over the chart to see any day.';
+    paint();
+  }
+
+  // --- the carpet ---
+  function paint() {
+    if (!data) return;
+    const img = ctx.createImageData(366, NY), px = img.data;
+    const base = [12, 43, 71], white = [238, 243, 246];
+    const temps = data.days.filter(d => d.t != null).map(d => d.t).sort((a, b) => a - b);
+    const tLo = temps[Math.floor(temps.length * 0.02)] || 0, tHi = temps[Math.floor(temps.length * 0.98)] || 1;
+    for (let i = 0; i < px.length; i += 4) { px[i] = base[0]; px[i + 1] = base[1]; px[i + 2] = base[2]; px[i + 3] = 255; }
+    data.days.forEach(d => {
+      let v = 0;
+      if (mode === 'rain') v = d.p == null ? 0 : d.p < 0.5 ? 0 : d.p < 2 ? 0.22 : d.p < 5 ? 0.4 : d.p < 10 ? 0.58 : d.p < 20 ? 0.76 : d.p < 40 ? 0.9 : 1;
+      else if (mode === 'temp') v = d.t == null ? 0 : Math.round(Math.max(0, Math.min(1, (d.t - tLo) / (tHi - tLo))) * 6) / 6;
+      else v = d.run >= 7 ? Math.min(1, 0.3 + d.run / 40) : 0;
+      const o = ((d.y - FIRST) * 366 + d.doy) * 4;
+      px[o] = base[0] + (white[0] - base[0]) * v; px[o + 1] = base[1] + (white[1] - base[1]) * v; px[o + 2] = base[2] + (white[2] - base[2]) * v;
+    });
+    ctx.putImageData(img, 0, 0);
+    cv.setAttribute('aria-label', (mode === 'rain' ? 'Daily rain' : mode === 'temp' ? 'Daily mean temperature' : 'Dry spells of a week or more') + ', one row per year from ' + FIRST + ' to ' + LAST + ', one pixel per day');
+  }
+  const probe = $('#probe'), cw = $('#cw');
+  cv.addEventListener('pointermove', e => {
+    if (!data) return;
+    const r = cv.getBoundingClientRect();
+    const doy = Math.floor((e.clientX - r.left) / r.width * 366), yr = FIRST + Math.floor((e.clientY - r.top) / r.height * NY);
+    const d = data.at.get(yr * 1000 + doy);
+    if (!d) { probe.style.display = 'none'; return; }
+    const cr = cw.getBoundingClientRect();
+    probe.style.display = 'block';
+    probe.style.left = (e.clientX - cr.left) + 'px';
+    probe.style.top = (e.clientY - cr.top) + 'px';
+    probe.textContent = nice(d.date) + ' · ' + (d.p == null ? '–' : d.p.toFixed(1) + ' mm') + ' · ' + (d.t == null ? '–' : d.t.toFixed(1) + ' °C') + (d.run >= 7 ? ' · day ' + d.run + ' without rain' : '');
+  });
+  cv.addEventListener('pointerleave', () => { probe.style.display = 'none'; });
+
+  rowLabels();
+  sizeCanvas();
+  setForm(PRESETS[0]);
+  pull();
+})();
+</script>
+</body>
+</html>

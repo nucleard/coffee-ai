@@ -1,0 +1,980 @@
+<title>Roastery Vault Atlas</title>
+<style>
+  :root {
+    --paper: #d9d1a8;
+    --paper-hi: #e6dfbf;
+    --paper-lo: #cdc498;
+    --ink: #17150e;
+    --ink-soft: #4a452f;
+    --ink-faint: #7d7656;
+    --accent: #2f4fae;
+    --mono: Consolas, "Cascadia Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  html { background: var(--paper); }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: var(--mono); margin: 0; font-size: 13px; line-height: 1.5;
+  }
+  * { box-sizing: border-box; }
+  ::selection { background: var(--ink); color: var(--paper); }
+
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; min-height: 560px; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    display: flex; align-items: stretch; border-bottom: 1.5px solid var(--ink);
+    background: var(--paper); flex-wrap: wrap;
+  }
+  .stat { padding: 8px 16px 9px; border-right: 1px solid var(--ink); min-width: 0; }
+  .stat .k { font-size: 9.5px; letter-spacing: .14em; color: var(--ink-faint); text-transform: uppercase; }
+  .stat .v { font-size: 14px; font-weight: 700; white-space: nowrap; }
+  .topbar .spacer { flex: 1; border-right: none; }
+  .tbtns { display: flex; align-items: center; gap: 8px; padding: 6px 12px; flex-wrap: wrap; }
+  .tbtn {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .08em; cursor: pointer;
+    background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink);
+    padding: 5px 12px; text-transform: uppercase;
+  }
+  .tbtn:hover { background: var(--paper-hi); }
+  .tbtn.on { background: var(--ink); color: var(--paper); }
+  .tbtn:focus-visible, .row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- main ---------- */
+  .main { display: grid; grid-template-columns: 236px 1fr 320px; min-height: 0; }
+  .side, .panel { overflow-y: auto; min-height: 0; }
+  .side { border-right: 1.5px solid var(--ink); padding: 12px 0 24px; }
+  .panel { border-left: 1.5px solid var(--ink); padding: 16px 18px 30px; }
+
+  .sechead {
+    font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint);
+    padding: 14px 14px 5px;
+  }
+  .row {
+    display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center;
+    padding: 5px 14px 5px 10px; margin: 1px 6px; cursor: pointer; border: 1px solid transparent;
+    font-family: var(--mono); font-size: 12px; text-align: left; background: none; color: var(--ink);
+    width: calc(100% - 12px);
+  }
+  .row:hover { border-color: var(--ink); background: var(--paper-hi); }
+  .row.pinned { background: var(--ink); color: var(--paper); }
+  .row.pinned .code { background: var(--paper); color: var(--ink); }
+  .row.pinned .cnt { color: var(--paper); opacity: .7; }
+  .code {
+    background: var(--ink); color: var(--paper); font-size: 10px; font-weight: 700;
+    text-align: center; padding: 2px 0; min-width: 26px;
+  }
+  .row[data-flow] .code { background: var(--accent); }
+  .row.pinned[data-flow] .code { background: var(--paper); color: var(--accent); }
+  .rname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cnt { font-size: 10px; color: var(--ink-faint); }
+
+  /* ---------- map ---------- */
+  .maparea { position: relative; min-width: 0; min-height: 0; background: var(--paper); touch-action: none;
+             user-select: none; -webkit-user-select: none; }
+  .maparea ::selection { background: transparent; }
+  .maparea svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .maphint {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 14px;
+    font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
+    border-top: 1px solid var(--ink); background: var(--paper); pointer-events: none;
+  }
+  .zbtns { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 4; }
+  .zbtn {
+    width: 30px; height: 30px; font-size: 15px; font-family: var(--mono); cursor: pointer;
+    background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink); line-height: 1;
+  }
+  .zbtn:hover { background: var(--paper-hi); }
+  .compass {
+    position: absolute; top: 10px; left: 12px; z-index: 4; pointer-events: none;
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft);
+    border: 1px solid var(--ink-soft); padding: 3px 8px; background: var(--paper);
+  }
+  .tip {
+    position: absolute; pointer-events: none; z-index: 5; display: none;
+    background: var(--ink); color: var(--paper); padding: 5px 9px; font-size: 11px;
+    max-width: 240px; line-height: 1.4;
+  }
+  .tip b { display: block; }
+  .tip span { opacity: .75; font-size: 10px; }
+
+  svg .bld { cursor: grab; }
+  svg .bld.dragging { cursor: grabbing; }
+  svg .bld polygon, svg .bld path, svg .bld line, svg .bld ellipse, svg .bld circle { transition: opacity .15s; }
+  svg .fl path, svg .fl text { transition: opacity .15s; }
+
+  /* ---------- right panel ---------- */
+  .p-eyebrow { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint); }
+  .p-title { font-size: 17px; font-weight: 700; margin: 3px 0 2px; }
+  .p-sub { font-size: 11px; color: var(--ink-soft); margin-bottom: 12px; }
+  .p-h { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint);
+         border-bottom: 1px solid var(--ink); padding-bottom: 3px; margin: 16px 0 8px; }
+  .p-body { font-size: 12.5px; color: var(--ink); }
+  .p-body p { margin: 0 0 9px; }
+  .p-body .hl { background: var(--ink); color: var(--paper); padding: 0 4px; }
+  .filechip {
+    display: inline-block; font-size: 10.5px; background: var(--paper-hi); border: 1px solid var(--ink-soft);
+    padding: 1px 6px; margin: 0 4px 4px 0; color: var(--ink-soft); word-break: break-all;
+  }
+  .hop { display: grid; grid-template-columns: 62px 1fr; gap: 8px; font-size: 11px; padding: 3px 0;
+         border-bottom: 1px dotted var(--ink-faint); }
+  .hop:last-child { border-bottom: none; }
+  .hop .h-ends { font-weight: 700; white-space: nowrap; }
+  .hop .h-pay { color: var(--ink-soft); }
+  .conn { font-size: 11.5px; padding: 3px 0; display: flex; gap: 8px; align-items: baseline; cursor: pointer; }
+  .conn:hover .c-name { text-decoration: underline; }
+  .conn .code { min-width: 22px; }
+
+  @media (max-width: 920px) {
+    .app { height: auto; }
+    .main { grid-template-columns: 1fr; }
+    .maparea { height: 68vh; }
+    .side { border-right: none; border-bottom: 1.5px solid var(--ink); max-height: 260px; }
+    .panel { border-left: none; border-top: 1.5px solid var(--ink); }
+  }
+</style>
+
+<div class="app">
+  <div class="topbar">
+    <div class="stat" style="border-left:none">
+      <div class="k">Repository</div>
+      <div class="v">roastery-vault-app · main@4fd5c5b</div>
+    </div>
+    <div class="stat"><div class="k">Model roles</div><div class="v">4</div></div>
+    <div class="stat"><div class="k">API routes</div><div class="v">8</div></div>
+    <div class="stat"><div class="k">Flows</div><div class="v">8</div></div>
+    <div class="stat"><div class="k">External services</div><div class="v">5</div></div>
+    <div class="stat spacer"></div>
+    <div class="tbtns">
+      <a class="tbtn" href="index.html#query" style="text-decoration:none">← Coffee and AI</a>
+      <button class="tbtn" id="btn-rot">⟳ Rotate · NE</button>
+      <button class="tbtn on" id="btn-trace">■ Pause the dots</button>
+      <button class="tbtn" id="btn-reset">Reset view</button>
+      <button class="tbtn" id="btn-layout">Reset layout</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <nav class="side" id="side" aria-label="Components and flows"></nav>
+
+    <div class="maparea" id="maparea">
+      <div id="map"></div>
+      <div class="compass" id="compass">View NE</div>
+      <div class="zbtns">
+        <button class="zbtn" id="z-in" aria-label="Zoom in">+</button>
+        <button class="zbtn" id="z-out" aria-label="Zoom out">−</button>
+        <button class="zbtn" id="z-fit" aria-label="Fit map" style="font-size:11px">⌂</button>
+      </div>
+      <div class="tip" id="tip"></div>
+      <div class="maphint">drag a building to rearrange · drag ground to pan · scroll to zoom · click to pin</div>
+    </div>
+
+    <aside class="panel" id="panel" aria-live="polite"></aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ================= projection & rotation =================
+  const TW = 46, TH = 23, ZH = 30;
+  const iso = (x, y, z) => [(x - y) * TW, (x + y) * TH - (z || 0) * ZH];
+  const P = pts => pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+  const INK = '#17150e', ACCENT = '#2f4fae', PAPER = '#d9d1a8';
+  const F_TOP = '#eee7c6', F_R = 'url(#hR)', F_L = 'url(#hL)';
+
+  let ROT = 0; // 0..3, quarter turns clockwise
+  const RCX = 6.8, RCY = 4.3; // rotation centre in grid space
+  const VIEWS = ['NE', 'SE', 'SW', 'NW'];
+
+  function rotP(x, y) {
+    const vx = x - RCX, vy = y - RCY;
+    switch (ROT) {
+      case 1: return [RCX + vy, RCY - vx];
+      case 2: return [RCX - vx, RCY - vy];
+      case 3: return [RCX - vy, RCY + vx];
+      default: return [x, y];
+    }
+  }
+  // inverse-rotate a rotated-space vector back to base space
+  function invVec(ux, uy) {
+    switch (ROT) {
+      case 1: return [-uy, ux];
+      case 2: return [-ux, -uy];
+      case 3: return [uy, -ux];
+      default: return [ux, uy];
+    }
+  }
+  // forward-rotate a base-space vector into rotated space
+  function fwdVec(vx, vy) {
+    switch (ROT) {
+      case 1: return [vy, -vx];
+      case 2: return [-vx, -vy];
+      case 3: return [-vy, vx];
+      default: return [vx, vy];
+    }
+  }
+  function rotRect(x, y, w, d) {
+    const a = rotP(x, y), b = rotP(x + w, y + d);
+    return { x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]), w: Math.abs(b[0] - a[0]), d: Math.abs(b[1] - a[1]) };
+  }
+
+  // ================= data =================
+  const NODES = [
+    { id:'hotkey', code:'HK', t:'antenna', x:-1.7, y:1.5, h:2.0, g:'surfaces',
+      name:'OS Hotkey', one:'A global keyboard shortcut that opens the desktop window from anywhere.',
+      what:`<p>A background thread watches the whole operating system for one key combination — <b>ctrl+shift+c</b> by default. When it fires, it can’t touch the window directly (wrong thread), so it emits a Qt signal that hops safely into the GUI thread and toggles the popup.</p><p>For a bystander: this is the “summon the assistant” button that works no matter what app is focused.</p>`,
+      files:['ui/hotkey_listener.py:15-35','main.py:161'] },
+    { id:'popup', code:'PU', t:'tower', x:-0.5, y:2.5, w:1.2, d:1.0, h:2.1, g:'surfaces',
+      name:'Desktop Popup', one:'The frameless desktop window where the roaster types a question.',
+      what:`<p>A 400×700 frameless window (PySide6). You type a question, press Enter, and a <b>QueryWorker</b> thread runs the whole pipeline off the GUI thread so the window never freezes. Answers render with a link that opens the source note directly in Obsidian.</p><p>If a name is ambiguous (“which Rugali — the product or the green lot?”) the answer area becomes clickable choice buttons instead.</p>`,
+      files:['ui/popup_window.py:270,366','ui/popup_window.py:807-820'] },
+    { id:'tray', code:'TY', t:'box', x:-2.4, y:3.3, w:0.85, d:0.8, h:0.55, g:'surfaces',
+      name:'Tray Icon', one:'The little icon by the clock: open, settings, quit.',
+      what:`<p>A system-tray icon. Left-click toggles the popup; the menu offers Open, Settings (which just opens <b>config.json</b> in your editor), and Quit.</p>`,
+      files:['ui/tray_icon.py:18-67'] },
+    { id:'webui', code:'W', t:'tower', x:0.4, y:5.7, w:1.5, d:1.2, h:1.5, g:'surfaces',
+      name:'Web UI', one:'The phone/browser client: ask box, mic, speaker, coffee menu.',
+      what:`<p>One single HTML file is the entire client. It keeps conversation chains in the browser’s local storage (30 max), sends questions with the last 4 turns of context, and offers category chips, a browsable coffee menu, a mic button for dictation, and a speaker button that reads answers aloud.</p><p>An access code typed once becomes the bearer token for every request.</p>`,
+      files:['web/index.html:495,517,582,669'] },
+    { id:'server', code:'G', t:'gate', x:2.7, y:3.6, w:1.5, d:1.2, h:1.15, g:'surfaces',
+      name:'FastAPI Gate', one:'The web server: 8 routes, all behind one shared token.',
+      what:`<p>The only door between the internet and the pipeline. Middleware checks a bearer token on every <b>/api/*</b> call using a constant-time compare; the dictation WebSocket re-checks the same secret from a query parameter (browsers can’t set WS headers).</p><p>Its 8 routes: <b>/</b> (the client, never cached), <b>/api/health</b>, <b>/api/ask</b>, <b>/api/coffees</b>, <b>/api/coffee/{name}</b>, <b>/api/voice/config</b>, <b>/api/speak</b>, <b>/api/refine</b> + <b>WS /ws/dictate</b>. In the cloud it also re-pulls the vault on a timer.</p>`,
+      files:['server.py:223-235','server.py:257-432','server.py:154-188'] },
+    { id:'pipeline', code:'P', t:'box', x:5.7, y:4.1, w:1.7, d:1.35, h:1.0, g:'core',
+      name:'Pipeline Hub', one:'The conductor: route → fetch → answer, with one allowed retry.',
+      what:`<p><b>run_query()</b> is the one function both surfaces call. It trims history to 4 bounded turns, asks the Router for a plan, hands the plan to the Fetcher, and passes the fetched text to the Answerer.</p><p>One self-correction is allowed: if the answer starts with <span class="hl">REROUTE:</span>, the pipeline re-routes once with that note attached, then forces a final answer. A second reroute marker is stripped and never reaches the user.</p>`,
+      files:['core/pipeline.py:84-141','core/pipeline.py:34-64'] },
+    { id:'router', code:'R', t:'box', x:4.1, y:2.1, w:1.3, d:1.0, h:1.5, g:'core',
+      name:'Router', one:'LLM call #1: turns the question into a JSON fetch plan.',
+      what:`<p>The first of exactly two model calls. <b>claude-sonnet-5</b> (thinking disabled, 1024 tokens) reads the question plus a system prompt describing what’s actually in the vault, and must reply with pure JSON: which files to get, what to scan, what to compute.</p><p>If the JSON doesn’t parse, one strict retry; if that fails too, a safe hard-coded fallback plan. The plan is validated before anything runs.</p>`,
+      files:['core/router.py:21,48-98','core/router.py:100-138'] },
+    { id:'answerer', code:'A', t:'box', x:7.7, y:2.3, w:1.3, d:1.0, h:1.5, g:'core',
+      name:'Answerer', one:'LLM call #2: writes the final prose from fetched notes.',
+      what:`<p>The second model call. <b>claude-sonnet-5</b> gets the question, the plan, and the raw markdown the Fetcher gathered, and writes the answer a human reads. Three retries with exponential backoff.</p><p>Its system prompt (card blocks A+C) contains the house rules — including the REROUTE contract that lets it send the pipeline back for better files exactly once.</p>`,
+      files:['core/answerer.py:21,39-104'] },
+    { id:'fetcher', code:'F', t:'warehouse', x:7.2, y:5.5, w:2.1, d:1.15, h:0.8, g:'core',
+      name:'Fetcher', one:'Executes the plan with zero AI — reads, scans, follows links.',
+      what:`<p>Deliberately dumb and honest. It executes plan steps — <b>get</b>, <b>scan</b>, <b>follow</b>, <b>calc</b> — against the vault. Names go through a resolution ladder: dictation fixes (“gucci”→Guji), a hardcoded product-vs-lot case, <b>aliases.json</b>, frontmatter matches, then filename matching; more than one match short-circuits into a disambiguation question.</p><p>Its honesty machinery is the repo’s signature: orders scans cap at 40 files <i>and say so</i>, every orders answer carries a freshness footer from <b>Last Pull.md</b>, scans disclose how many files simply lack the filtered field, and duplicate order numbers are all returned rather than silently picked.</p>`,
+      files:['core/fetcher.py:66-179','core/fetcher.py:185-237','core/fetcher.py:361,524,571-589'] },
+    { id:'calc', code:'C', t:'box', x:9.9, y:5.1, w:1.05, d:0.9, h:0.65, g:'core',
+      name:'Orders Calc', one:'Deterministic math over sales ledgers — no model touches numbers.',
+      what:`<p>Revenue, order counts, units, kilograms — grouped by day, month, product, or channel — computed in plain Python from the ledger files. The result ships to the user <b>as-is</b>: the second LLM call is skipped so a model can never “improve” the arithmetic.</p><p>It excludes cancelled orders and says so, refuses per-item revenue outright (the data can’t support it), and counts unparseable bag weights out loud.</p>`,
+      files:['core/orders_calc.py:184,274','core/orders_calc.py:137-140,198-236'] },
+    { id:'scan', code:'S', t:'box', x:3.2, y:5.4, w:1.4, d:1.0, h:0.9, g:'core',
+      name:'Scan & Card Press', one:'At boot: census the vault, re-print half the system prompt.',
+      what:`<p>At every startup the scanner walks 8 vault folders and counts what exists. The card loader then takes the hand-written Query Card and <b>regenerates its middle block</b> with live counts, canonical name lists, and orders coverage.</p><p>Blocks A+B become the Router’s system prompt; A+C the Answerer’s. The prompts the models see are never stale relative to the vault.</p>`,
+      files:['core/vault_scan.py:14-23,42-57,124-235','core/card_loader.py:27-101'] },
+    { id:'stt', code:'VR', t:'tower', x:11.3, y:2.7, w:1.2, d:1.0, h:1.35, g:'voice',
+      name:'Voice Relay', one:'Streams mic audio to the transcription service — key stays server-side.',
+      what:`<p>The browser opens a WebSocket and streams raw 16&nbsp;kHz audio frames. This relay forwards them to ElevenLabs <b>Scribe v2 realtime</b>, injecting the API key server-side so the browser never holds a secret, and streams partial and committed transcripts back down.</p><p>Up to 50 “keyterms” — product and coffee names harvested from the vault — bias recognition toward the roastery’s vocabulary.</p>`,
+      files:['voice/stt_relay.py:34-68,71-176','voice/vocab.py:15-52'] },
+    { id:'refine', code:'RD', t:'box', x:13.1, y:4.2, w:1.1, d:0.9, h:0.9, g:'voice',
+      name:'Refine Desk', one:'A small model tidies the raw transcript into a clean question.',
+      what:`<p><b>claude-haiku-4-5</b> takes the raw speech-to-text output and returns <b>{question, english, language}</b> — punctuation fixed, vault vocabulary corrected, and a translation if the speaker wasn’t using English. The English form is what actually enters the ask pipeline.</p><p>The same model also translates finished answers back into the speaker’s language when multilingual answers are enabled.</p>`,
+      files:['voice/refine.py:22,49-92','voice/refine.py:109-134'] },
+    { id:'tts', code:'T', t:'box', x:11.0, y:5.5, w:1.2, d:1.0, h:1.0, g:'voice',
+      name:'TTS Works', one:'Turns answer markdown into spoken MP3 audio.',
+      what:`<p>First the answer is made speakable: tables collapse to “See the table below.”, markdown is stripped, ISO dates become spoken dates (“June 1st, 2026”). Then a provider is chosen: English goes to Deepgram’s <b>aura-2-phoebe</b>; anything else to ElevenLabs <b>eleven_multilingual_v2</b>. The MP3 streams back and plays through one reused audio element — an iOS autoplay-unlock trick.</p>`,
+      files:['voice/speakable.py:12-104','voice/tts.py:22-118','web/index.html:927-969'] },
+    { id:'vault', code:'V', t:'warehouse', x:7.4, y:7.7, w:2.7, d:1.8, h:1.1, g:'data',
+      name:'Obsidian Vault', one:'The single source of truth: markdown notes, read-only to the app.',
+      what:`<p>Everything the system knows lives here as plain markdown across 8 category folders — products, green lots, roast profiles, cupping records, clients, orders, website copy. The app <b>never writes it</b>.</p><p>On the desktop it’s the roaster’s live Obsidian vault; in the cloud it’s a git checkout of a private repo, refreshed by pull. Answers link straight back to their source notes.</p>`,
+      files:['core/vault_scan.py:14-23','render.yaml','server.py:141-176'] },
+    { id:'aliases', code:'AL', t:'box', x:10.9, y:7.3, w:0.9, d:0.8, h:0.45, g:'data',
+      name:'Aliases', one:'A nickname dictionary: “the Kenyan” → the canonical note name.',
+      what:`<p><b>aliases.json</b> at the vault root maps shorthand to canonical names. A single value resolves silently; a list of values makes the app ask “which one did you mean?” instead of guessing.</p>`,
+      files:['core/aliases.py:15-37'] },
+    { id:'card', code:'QC', t:'slab', x:4.4, y:7.1, w:1.35, d:1.0, h:0.26, g:'data',
+      name:'Query Card', one:'The hand-written 3-block document that IS the system prompt.',
+      what:`<p>A markdown document split on <b>---</b> into three blocks: A (shared ground rules), B (the Router’s map of the vault and its operations), C (the Answerer’s writing rules and the REROUTE contract). Half of B is machine-regenerated at every boot from the live scan.</p><p>Tuning the system mostly means editing this card, not the code.</p>`,
+      files:['files_extracted/Roastery Query Card - v1.md','core/card_loader.py:29-63'] },
+    { id:'logs', code:'L', t:'silo', x:2.0, y:7.9, r:0.55, h:1.35, g:'data',
+      name:'Query Log', one:'Append-only record of every question, plan, and stumble.',
+      what:`<p>Every answered query appends one JSON line — question, chosen route, confidence, files fetched, duration. Alongside it, event lines record the interesting failures: <b>reroute_fired</b>, <b>fallback_fired</b>, <b>ambiguous_entity</b>, <b>not_found</b> and a dozen more.</p><p>The file is explicitly the tuning backlog: read the log, improve the card.</p>`,
+      files:['core/query_logger.py:20-51','logs/queries.jsonl'] },
+    { id:'anthropic', code:'AN', t:'platform', x:5.0, y:-1.3, w:2.1, d:1.2, fz:4.6, g:'ext',
+      name:'Anthropic API', one:'The models: sonnet-5 routes & answers, haiku-4-5 refines & translates.',
+      what:`<p>Four model roles, two models. <b>claude-sonnet-5</b> plays Router and Answerer (1024 tokens, thinking disabled — fast and cheap). <b>claude-haiku-4-5</b> plays transcript refiner and answer translator.</p><p>One env var (<b>ANTHROPIC_API_KEY</b>) covers all four; keys live only on the server.</p>`,
+      files:['core/router.py:21,102','core/answerer.py:21,87','voice/refine.py:22,65,119'] },
+    { id:'elevenlabs', code:'EL', t:'platform', x:9.3, y:-0.9, w:1.9, d:1.1, fz:4.4, g:'ext',
+      name:'ElevenLabs', one:'Realtime speech-to-text (Scribe v2) and multilingual text-to-speech.',
+      what:`<p>Two jobs: <b>Scribe v2 realtime</b> transcribes the mic stream over WebSocket (VAD-committed, keyterm-biased), and <b>eleven_multilingual_v2</b> speaks non-English answers. If its key is missing, the voice stack degrades gracefully to browser-native speech.</p>`,
+      files:['voice/stt_relay.py:34-57','voice/tts.py:27-35,99-118','voice/__init__.py:31-43'] },
+    { id:'deepgram', code:'DG', t:'platform', x:12.6, y:0.1, w:1.7, d:1.1, fz:4.1, g:'ext',
+      name:'Deepgram', one:'English text-to-speech: the aura-2-phoebe voice.',
+      what:`<p>The default English voice. The TTS works POSTs speakable text to <b>api.deepgram.com/v1/speak</b> (model aura-2-phoebe-en, 1900-char cap) and streams the MP3 back to the browser.</p>`,
+      files:['voice/tts.py:22-25,77-96'] },
+    { id:'github', code:'GH', t:'platform', x:0.6, y:-0.9, w:1.7, d:1.1, fz:4.4, g:'ext',
+      name:'GitHub', one:'The private vault repo the cloud deployment clones and pulls.',
+      what:`<p>Cloud only. The Render build clones the private vault repo next to the app; at runtime a loop runs <b>git pull --ff-only</b> every N seconds. If HEAD moved, the whole pipeline is rebuilt — rescan, card re-press, coffee menu — so the cloud answers from fresh notes within a minute of a push.</p>`,
+      files:['render.yaml','server.py:141-188'] },
+    { id:'shopify', code:'SH', t:'platform', x:14.6, y:2.7, w:1.7, d:1.1, fz:3.7, g:'ext', dashed:true,
+      name:'Shopify Admin API', one:'Order data source — pulled by a separate repo, never called live.',
+      what:`<p>Drawn dashed because it’s <b>not in this repo</b>. An external <b>pull_orders.py</b> (scheduled hourly) reads the GraphQL Admin API and commits order ledgers into the vault as <b>Business/Orders/*.md</b> plus a <b>Last Pull.md</b> timestamp.</p><p>The query app only ever reads those files — no live Shopify call sits in any answer path, which is why every orders answer can state exactly how fresh its data is.</p>`,
+      files:['Shopify Pull - Build Plan (As Built).md:7-39','core/fetcher.py:571-587'] },
+  ];
+  const N = {}; NODES.forEach(n => N[n.id] = n);
+  const ORIG = {}; NODES.forEach(n => ORIG[n.id] = { x: n.x, y: n.y });
+
+  const FLOWS = [
+    { f:1, name:'The ask pipeline', sub:'question → plan → files → answer',
+      what:`<p>The main event. A question — typed on either surface — becomes a JSON fetch plan (model call #1), the plan is executed <b>deterministically</b> against the vault, and the fetched notes become prose (model call #2).</p><p>Watch the two guard rails: pure-math questions skip the second model call entirely, and a bad route gets exactly one <span class="hl">REROUTE</span> retry.</p>`,
+      cite:['core/pipeline.py:84-141'] },
+    { f:2, name:'Hotkey & tray', sub:'summon the desktop window',
+      what:`<p>A global keypress (or a tray click) crosses from an OS listener thread into the Qt GUI thread via a signal, and the popup appears centered with focus in the input box.</p>`,
+      cite:['ui/hotkey_listener.py:15-35','main.py:161'] },
+    { f:3, name:'Dictation', sub:'voice in: mic → transcript → clean question',
+      what:`<p>Mic audio streams through the server to ElevenLabs Scribe v2 in real time; the browser shows partial transcripts as you speak. On stop, the raw transcript takes one trip through haiku-4-5 and comes back as a clean, English, vault-vocabulary question.</p>`,
+      cite:['voice/stt_relay.py:71-176','voice/refine.py:49-92'] },
+    { f:4, name:'Spoken answer', sub:'voice out: markdown → MP3',
+      what:`<p>The answer is flattened to speakable text (tables become “see the table below”, dates are naturalized), then synthesized — Deepgram for English, ElevenLabs for everything else — and played in the browser.</p>`,
+      cite:['voice/speakable.py:57-104','voice/tts.py:58-118'] },
+    { f:5, name:'Boot scan & card press', sub:'vault census → fresh system prompts',
+      what:`<p>At startup the vault is scanned and the Query Card’s middle block is regenerated from what actually exists. The result splits into the two system prompts. This flow is why the Router rarely asks for files that aren’t there.</p>`,
+      cite:['core/vault_scan.py:42-235','core/card_loader.py:27-101'] },
+    { f:6, name:'Cloud vault refresh', sub:'git pull, rebuild on change',
+      what:`<p>Cloud only: every N seconds, <b>git pull --ff-only</b>. If the vault repo’s HEAD moved, the entire in-memory pipeline is rebuilt so answers reflect the push within about a minute.</p>`,
+      cite:['server.py:141-188'] },
+    { f:7, name:'Shopify pull', sub:'external, hourly: orders → vault ledgers',
+      what:`<p>Runs in a different repo on a schedule. It writes order ledgers into the vault as markdown; this app only ever reads them. The handoff file <b>Last Pull.md</b> becomes the freshness footer on every orders answer.</p>`,
+      cite:['Shopify Pull - Build Plan (As Built).md'] },
+    { f:8, name:'Telemetry', sub:'every query and stumble → JSONL',
+      what:`<p>Both surfaces log every answered query, and the pipeline logs its events — reroutes, fallbacks, ambiguities, misses — to an append-only file that serves as the tuning backlog.</p>`,
+      cite:['core/query_logger.py:20-51'] },
+  ];
+  const FL = {}; FLOWS.forEach(fl => FL[fl.f] = fl);
+
+  const ARROWS = [
+    { f:1, a:'webui', b:'server',   l:'POST /api/ask · question + history≤4', bend:-26, lt:0.45 },
+    { f:1, a:'popup', b:'pipeline', l:'QueryWorker (QThread)', bend:-80, lt:0.3 },
+    { f:1, a:'server', b:'pipeline', l:'run_query()', bend:22, lt:0.5 },
+    { f:1, a:'pipeline', b:'router', l:'route()', bend:-12, lt:0.6 },
+    { f:1, a:'router', b:'anthropic', l:'sonnet-5 ⇄ JSON fetch plan', bi:true, bend:-10, lt:0.5 },
+    { f:1, a:'router', b:'fetcher',  l:'validated plan', bend:16, lt:0.45 },
+    { f:1, a:'fetcher', b:'vault',   l:'get / scan / follow ⇄ markdown', bi:true, bend:12, lt:0.55 },
+    { f:1, a:'fetcher', b:'aliases', l:'resolve names', bend:14, lt:0.55 },
+    { f:1, a:'fetcher', b:'calc',    l:'op:calc · no 2nd LLM', bend:-12, lt:0.6 },
+    { f:1, a:'fetcher', b:'answerer', l:'context, joined “---”', bend:-14, lt:0.5 },
+    { f:1, a:'answerer', b:'anthropic', l:'sonnet-5 ⇄ prose answer', bi:true, bend:12, lt:0.5 },
+    { f:1, a:'answerer', b:'router', l:'REROUTE ≤1×', dash:'4 4', bend:-44, lt:0.5 },
+    { f:2, a:'hotkey', b:'popup', l:'ctrl+shift+c → Qt signal', bend:-22, lt:0.5 },
+    { f:2, a:'tray', b:'popup', l:'left-click toggle', bend:14, lt:0.45 },
+    { f:3, a:'webui', b:'stt', l:'WS /ws/dictate · PCM 16 kHz ⇄ transcript', bi:true, bend:-150, lt:0.62 },
+    { f:3, a:'stt', b:'elevenlabs', l:'Scribe v2 realtime · VAD · ≤50 keyterms', bi:true, bend:-8, lt:0.5 },
+    { f:3, a:'webui', b:'refine', l:'POST /api/refine · raw transcript', bend:95, lt:0.62 },
+    { f:3, a:'refine', b:'anthropic', l:'haiku-4-5 ⇄ {question, english, lang}', bi:true, bend:-20, lt:0.45 },
+    { f:4, a:'webui', b:'tts', l:'POST /api/speak · markdown ⇄ MP3', bi:true, bend:95, lt:0.42 },
+    { f:4, a:'tts', b:'deepgram', l:'English · aura-2-phoebe', bi:true, bend:-6, lt:0.55 },
+    { f:4, a:'tts', b:'elevenlabs', l:'non-English · multilingual_v2', bi:true, bend:22, lt:0.6 },
+    { f:5, a:'vault', b:'scan', l:'boot scan · 8 category folders', bend:22, lt:0.72 },
+    { f:5, a:'card', b:'scan', l:'3-block card · B regenerated', bend:10, lt:0.4 },
+    { f:5, a:'scan', b:'router', l:'system = A+B', bend:-30, lt:0.35 },
+    { f:5, a:'scan', b:'answerer', l:'system = A+C', bend:-60, lt:0.68 },
+    { f:6, a:'github', b:'vault', l:'git pull --ff-only · HEAD moved → rebuild', bend:-150, lt:0.22 },
+    { f:7, a:'shopify', b:'vault', l:'hourly ledgers → Business/Orders/*.md', bend:60, lt:0.68 },
+    { f:8, a:'pipeline', b:'logs', l:'log_query + events · JSONL', bend:26, lt:0.5 },
+  ];
+
+  // saved layout — validate hard so corrupted storage can never break the map
+  const okG = v => typeof v === 'number' && isFinite(v) && v > -30 && v < 50;
+  const clampG = v => Math.max(-30, Math.min(50, v));
+  try {
+    const saved = JSON.parse(localStorage.getItem('rva-layout-v1') || 'null');
+    if (saved) NODES.forEach(n => {
+      const v = saved[n.id];
+      if (Array.isArray(v) && okG(v[0]) && okG(v[1])) { n.x = v[0]; n.y = v[1]; }
+    });
+  } catch (e) {}
+  function saveLayout() {
+    try {
+      const out = {};
+      NODES.forEach(n => {
+        if (okG(n.x) && okG(n.y) && (n.x !== ORIG[n.id].x || n.y !== ORIG[n.id].y)) out[n.id] = [n.x, n.y];
+      });
+      localStorage.setItem('rva-layout-v1', JSON.stringify(out));
+    } catch (e) {}
+  }
+
+  // ================= scene building =================
+  function computeR() {
+    NODES.forEach(n => {
+      if (n.t === 'silo' || n.t === 'antenna') { const p = rotP(n.x, n.y); n._r = { x: p[0], y: p[1] }; }
+      else n._r = rotRect(n.x, n.y, n.w, n.d);
+    });
+  }
+  function anchor(n) {
+    const r = n._r;
+    if (n.t === 'platform') { const [sx, sy] = iso(r.x + r.w / 2, r.y + r.d / 2, n.fz); return [sx, sy + 6]; }
+    if (n.t === 'silo' || n.t === 'antenna') return iso(r.x, r.y, n.h);
+    return iso(r.x + r.w / 2, r.y + r.d / 2, n.h);
+  }
+
+  let S = '';
+  const add = s => { S += s + '\n'; };
+
+  function box(x, y, w, d, h, zb, dashed) {
+    const A = iso(x, y, zb + h), Bp = iso(x + w, y, zb + h), C = iso(x + w, y + d, zb + h), D = iso(x, y + d, zb + h);
+    const B0 = iso(x + w, y, zb), C0 = iso(x + w, y + d, zb), D0 = iso(x, y + d, zb);
+    const st = dashed ? ` stroke-dasharray="4 3"` : '';
+    return `<polygon points="${P([D, C, C0, D0])}" fill="${F_L}" stroke="${INK}" stroke-width="1.1"${st}/>`
+         + `<polygon points="${P([Bp, C, C0, B0])}" fill="${F_R}" stroke="${INK}" stroke-width="1.1"${st}/>`
+         + `<polygon points="${P([A, Bp, C, D])}" fill="${F_TOP}" stroke="${INK}" stroke-width="1.1"${st}/>`;
+  }
+
+  function drawNode(b) {
+    const r = b._r;
+    let body = '';
+    if (b.t === 'antenna') {
+      const base = iso(r.x, r.y, 0), top = iso(r.x, r.y, b.h);
+      body += box(r.x - 0.28, r.y - 0.28, 0.56, 0.56, 0.3, 0);
+      body += `<line x1="${base[0]}" y1="${base[1] - 0.3 * ZH}" x2="${top[0]}" y2="${top[1]}" stroke="${INK}" stroke-width="1.6"/>`;
+      body += `<circle cx="${top[0]}" cy="${top[1]}" r="4" fill="${F_TOP}" stroke="${INK}"/>`;
+      body += `<circle cx="${top[0]}" cy="${top[1]}" r="9" fill="none" stroke="${INK}" stroke-width=".8" opacity=".5"/>`;
+      body += `<circle cx="${top[0]}" cy="${top[1]}" r="14" fill="none" stroke="${INK}" stroke-width=".8" opacity=".3"/>`;
+    } else if (b.t === 'silo') {
+      const rx = b.r * TW * 1.414, ry = b.r * TH * 1.414;
+      const [cx, cyT] = iso(r.x, r.y, b.h), [, cyB] = iso(r.x, r.y, 0);
+      body += `<path d="M ${cx - rx},${cyT} L ${cx - rx},${cyB} A ${rx} ${ry} 0 0 0 ${cx + rx},${cyB} L ${cx + rx},${cyT} Z" fill="${F_R}" stroke="${INK}" stroke-width="1.1"/>`;
+      body += `<ellipse cx="${cx}" cy="${cyT}" rx="${rx}" ry="${ry}" fill="${F_TOP}" stroke="${INK}" stroke-width="1.1"/>`;
+    } else if (b.t === 'platform') {
+      const cx = r.x + r.w / 2, cy = r.y + r.d / 2;
+      const d0 = iso(cx, cy, 0), d1 = iso(cx, cy, b.fz);
+      body += `<line x1="${d0[0]}" y1="${d0[1]}" x2="${d1[0]}" y2="${d1[1] + 4}" stroke="${INK}" stroke-width=".8" stroke-dasharray="2 5" opacity=".45"/>`;
+      body += `<ellipse cx="${d0[0]}" cy="${d0[1]}" rx="10" ry="5" fill="none" stroke="${INK}" stroke-width=".7" opacity=".35"/>`;
+      body += box(r.x, r.y, r.w, r.d, 0.22, b.fz, b.dashed);
+    } else if (b.t === 'slab') {
+      body += box(r.x, r.y, r.w, r.d, b.h, 0);
+      const l1a = iso(r.x + 0.22, r.y + 0.32, b.h + 0.01), l1b = iso(r.x + r.w - 0.22, r.y + 0.32, b.h + 0.01);
+      const l2a = iso(r.x + 0.22, r.y + 0.62, b.h + 0.01), l2b = iso(r.x + r.w - 0.22, r.y + 0.62, b.h + 0.01);
+      body += `<line x1="${l1a[0]}" y1="${l1a[1]}" x2="${l1b[0]}" y2="${l1b[1]}" stroke="${INK}" opacity=".45" stroke-width=".8"/>`;
+      body += `<line x1="${l2a[0]}" y1="${l2a[1]}" x2="${l2b[0]}" y2="${l2b[1]}" stroke="${INK}" opacity=".45" stroke-width=".8"/>`;
+    } else if (b.t === 'tower') {
+      body += box(r.x, r.y, r.w, r.d, b.h, 0);
+      body += box(r.x + r.w * 0.22, r.y + r.d * 0.22, r.w * 0.56, r.d * 0.56, 0.28, b.h);
+    } else if (b.t === 'gate') {
+      body += box(r.x, r.y, r.w, r.d, b.h, 0);
+      const dx = r.x + r.w * 0.32, dw = r.w * 0.36;
+      const p1 = iso(dx, r.y + r.d, 0), p2 = iso(dx + dw, r.y + r.d, 0), p3 = iso(dx + dw, r.y + r.d, b.h * 0.62), p4 = iso(dx, r.y + r.d, b.h * 0.62);
+      body += `<polygon points="${P([p1, p2, p3, p4])}" fill="${INK}" stroke="${INK}"/>`;
+    } else if (b.t === 'warehouse') {
+      body += box(r.x, r.y, r.w, r.d, b.h, 0);
+      for (let i = 1; i < 4; i++) {
+        const rx0 = r.x + (r.w * i) / 4;
+        const a = iso(rx0, r.y, b.h + 0.01), bb = iso(rx0, r.y + r.d, b.h + 0.01);
+        body += `<line x1="${a[0]}" y1="${a[1]}" x2="${bb[0]}" y2="${bb[1]}" stroke="${INK}" opacity=".35" stroke-width=".8"/>`;
+      }
+    } else {
+      body += box(r.x, r.y, r.w, r.d, b.h, 0);
+    }
+    let cp;
+    if (b.t === 'platform') cp = iso(r.x + r.w / 2, r.y + r.d / 2, b.fz + 0.22);
+    else if (b.t === 'silo') cp = iso(r.x, r.y, b.h);
+    else if (b.t === 'antenna') { const t = iso(r.x, r.y, b.h); cp = [t[0], t[1] - 12]; }
+    else cp = iso(r.x + r.w / 2, r.y + r.d / 2, b.h + (b.t === 'tower' ? 0.28 : 0));
+    body += `<text x="${cp[0]}" y="${cp[1] + 3.5}" text-anchor="middle" font-size="11" font-weight="700" fill="${INK}" font-family="Consolas,ui-monospace,monospace" style="pointer-events:none">${b.code}</text>`;
+    add(`<g class="bld" data-id="${b.id}" tabindex="0" role="img" aria-label="${b.name}">${body}</g>`);
+  }
+
+  function ground() {
+    const x0 = -3.2, x1 = 16.8, y0 = -2.0, y1 = 10.6;
+    const L = (p1, p2, op) => {
+      const a = iso(...rotP(p1[0], p1[1]), 0), b = iso(...rotP(p2[0], p2[1]), 0);
+      add(`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${INK}" stroke-width=".5" opacity="${op}"/>`);
+    };
+    for (let x = Math.ceil(x0); x <= x1; x++) L([x, y0], [x, y1], .14);
+    for (let y = Math.ceil(y0); y <= y1; y++) L([x0, y], [x1, y], .14);
+    const plates = [
+      { pts: [[-3.0,1.2],[1.4,1.2],[2.4,7.2],[-3.0,7.2]], n:'SURFACES', at:[-2.6,6.6] },
+      { pts: [[3.0,1.6],[9.4,1.6],[9.4,6.8],[3.0,6.8]], n:'CORE', at:[3.3,6.5] },
+      { pts: [[10.6,2.2],[14.6,2.2],[14.6,6.8],[10.6,6.8]], n:'VOICE', at:[10.9,6.5] },
+      { pts: [[1.4,7.4],[12.2,6.9],[12.2,10.2],[1.4,10.2]], n:'DATA AT REST', at:[1.8,9.8] },
+    ];
+    plates.forEach(pl => {
+      const pts = pl.pts.map(p => iso(...rotP(p[0], p[1]), 0.02));
+      add(`<polygon points="${P(pts)}" fill="none" stroke="${INK}" opacity=".3" stroke-width=".7" stroke-dasharray="1 4"/>`);
+      const [tx, ty] = iso(...rotP(pl.at[0], pl.at[1]), 0);
+      add(`<text x="${tx}" y="${ty}" font-size="9.5" letter-spacing="2.5" fill="${INK}" opacity=".4" font-family="Consolas,ui-monospace,monospace">${pl.n}</text>`);
+    });
+    const [ex, ey] = iso(...rotP(0.4, -1.7), 4.4);
+    add(`<text x="${ex}" y="${ey - 34}" text-anchor="middle" font-size="9.5" letter-spacing="2.5" fill="${INK}" opacity=".4" font-family="Consolas,ui-monospace,monospace">EXTERNAL SERVICES · ELEVATED</text>`);
+  }
+
+  function qp(a, c, b, t) {
+    const u = 1 - t;
+    return [u*u*a[0] + 2*u*t*c[0] + t*t*b[0], u*u*a[1] + 2*u*t*c[1] + t*t*b[1]];
+  }
+
+  function arrowGeom(ar) {
+    let A = anchor(N[ar.a]).slice(), Bb = anchor(N[ar.b]).slice();
+    const dx = Bb[0]-A[0], dy = Bb[1]-A[1], L = Math.hypot(dx, dy) || 1;
+    const ux = dx/L, uy = dy/L, trim = 13;
+    A = [A[0]+ux*trim, A[1]+uy*trim-3]; Bb = [Bb[0]-ux*trim, Bb[1]-uy*trim-3];
+    const mid = [(A[0]+Bb[0])/2, (A[1]+Bb[1])/2];
+    const C = [mid[0] - uy*(ar.bend||-20), mid[1] + ux*(ar.bend||-20)];
+    const d = `M ${A[0].toFixed(1)} ${A[1].toFixed(1)} Q ${C[0].toFixed(1)} ${C[1].toFixed(1)} ${Bb[0].toFixed(1)} ${Bb[1].toFixed(1)}`;
+    const [lx, ly] = qp(A, C, Bb, ar.lt == null ? 0.5 : ar.lt);
+    return { d, lx, ly };
+  }
+
+  function drawArrow(ar, i) {
+    const g = arrowGeom(ar);
+    const dash = ar.dash ? ` stroke-dasharray="${ar.dash}"` : '';
+    const mk = ` marker-end="url(#arr)"` + (ar.bi ? ` marker-start="url(#arrR)"` : '');
+    const halo = `stroke="${PAPER}" stroke-width="3.2" paint-order="stroke" stroke-linejoin="round"`;
+    add(`<g class="fl" data-flow="${ar.f}" data-a="${ar.a}" data-b="${ar.b}">`
+      + `<path id="ap-${i}" d="${g.d}" fill="none" stroke="${INK}" stroke-width="1.2"${dash}${mk}/>`
+      + `<text class="fl-lab" x="${g.lx}" y="${g.ly - 6}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${ACCENT}" ${halo} font-family="Consolas,ui-monospace,monospace" opacity="0" style="pointer-events:none">${ar.l}</text>`
+      + `</g>`);
+  }
+
+  const DEFS = `<defs>
+    <pattern id="hL" width="4.5" height="4.5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="4.5" height="4.5" fill="#cfc69c"/><line x1="0" y1="0" x2="0" y2="4.5" stroke="${INK}" stroke-width="1" opacity=".45"/>
+    </pattern>
+    <pattern id="hR" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="6" height="6" fill="#ded6b0"/><line x1="0" y1="0" x2="0" y2="6" stroke="${INK}" stroke-width=".8" opacity=".35"/>
+    </pattern>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="${INK}"/></marker>
+    <marker id="arrR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M10,0 L0,5 L10,10 Z" fill="${INK}" transform="rotate(180 5 5)"/></marker>
+  </defs>`;
+
+  document.getElementById('map').innerHTML =
+    `<svg id="atlas" role="img" aria-label="Isometric line-art map of roastery-vault-app. Hover buildings and flows to read details in the side panel. Drag buildings to rearrange; drag the ground to pan; scroll to zoom; rotate with the toolbar button." viewBox="-420 -245 1250 760" preserveAspectRatio="xMidYMid meet"></svg>`;
+  const svg = document.getElementById('atlas');
+  const maparea = document.getElementById('maparea');
+
+  function renderScene() {
+    computeR();
+    S = '';
+    ground();
+    ARROWS.forEach(drawArrow);
+    NODES.slice().sort((a, b) => {
+      const fs = n => (n.t === 'silo' || n.t === 'antenna') ? n._r.x + n._r.y : (n._r.x + n._r.w) + (n._r.y + n._r.d);
+      return fs(a) - fs(b);
+    }).forEach(drawNode);
+    add(`<g id="dots"></g>`);
+    svg.innerHTML = DEFS + S;
+  }
+
+  // ================= camera =================
+  let view = null;
+  function applyView() { svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`); }
+  function fitView(pad) {
+    pad = pad || 40;
+    const bb = svg.getBBox();
+    if (!bb || !isFinite(bb.width) || bb.width < 10 || bb.height < 10) return;
+    view = { x: bb.x - pad, y: bb.y - pad, w: bb.width + 2 * pad, h: bb.height + 2 * pad };
+    applyView();
+  }
+  function svgScale() {
+    const r = maparea.getBoundingClientRect();
+    const s = Math.min(r.width / view.w, r.height / view.h);
+    // a zero-sized frame (mid-layout) would make drags divide by zero and
+    // fling buildings to infinity — fall back to a sane scale instead
+    return (isFinite(s) && s > 0.0001) ? s : 1;
+  }
+  function clientToSvgPt(mx, my) {
+    const r = maparea.getBoundingClientRect();
+    const s = svgScale();
+    const ox = (r.width - view.w * s) / 2, oy = (r.height - view.h * s) / 2;
+    return [view.x + (mx - r.left - ox) / s, view.y + (my - r.top - oy) / s];
+  }
+  function zoomAt(mx, my, factor) {
+    const [px, py] = clientToSvgPt(mx, my);
+    const nw = Math.min(4200, Math.max(240, view.w * factor));
+    const f = nw / view.w;
+    view = { x: px - (px - view.x) * f, y: py - (py - view.y) * f, w: view.w * f, h: view.h * f };
+    applyView();
+  }
+  maparea.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoomAt(e.clientX, e.clientY, e.deltaY > 0 ? 1.13 : 1 / 1.13);
+  }, { passive: false });
+  document.getElementById('z-in').addEventListener('click', () => {
+    const r = maparea.getBoundingClientRect();
+    zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1 / 1.25);
+  });
+  document.getElementById('z-out').addEventListener('click', () => {
+    const r = maparea.getBoundingClientRect();
+    zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.25);
+  });
+  document.getElementById('z-fit').addEventListener('click', () => fitView());
+
+  // ================= sidebar =================
+  const GROUPS = [
+    ['THE FLOWS', null],
+    ['THE SURFACES', 'surfaces'],
+    ['THE CORE PIPELINE', 'core'],
+    ['THE VOICE STACK', 'voice'],
+    ['DATA AT REST', 'data'],
+    ['EXTERNAL SERVICES', 'ext'],
+  ];
+  const flowTouch = f => { const s = new Set(); ARROWS.filter(a => a.f === f).forEach(a => { s.add(a.a); s.add(a.b); }); return s; };
+  const nodeFlows = id => [...new Set(ARROWS.filter(a => a.a === id || a.b === id).map(a => a.f))];
+
+  let html = '';
+  GROUPS.forEach(([label, g]) => {
+    html += `<div class="sechead">${label}</div>`;
+    if (!g) {
+      FLOWS.forEach(fl => {
+        html += `<button class="row" data-flow="${fl.f}"><span class="code">${fl.f}</span><span class="rname">${fl.name}</span><span class="cnt">${ARROWS.filter(a => a.f === fl.f).length}</span></button>`;
+      });
+    } else {
+      NODES.filter(n => n.g === g).forEach(n => {
+        html += `<button class="row" data-node="${n.id}"><span class="code">${n.code}</span><span class="rname">${n.name}</span><span class="cnt">${nodeFlows(n.id).length}</span></button>`;
+      });
+    }
+  });
+  document.getElementById('side').innerHTML = html;
+
+  // ================= right panel =================
+  const panel = document.getElementById('panel');
+  const fileChips = arr => arr.map(f => `<span class="filechip">${f}</span>`).join('');
+
+  function renderDefault() {
+    panel.innerHTML = `
+      <div class="p-eyebrow">Roastery Vault</div>
+      <div class="p-title">The Atlas</div>
+      <div class="p-sub">one core pipeline · two doors · surveyed 2026-08-15</div>
+      <div class="p-body">
+        <p>This repository answers a roaster’s questions from their own notes. A question becomes a
+        <span class="hl">JSON fetch plan</span> (one model call), the plan is executed <b>deterministically</b>
+        against a read-only Obsidian vault, and the fetched notes become prose (a second model call).
+        Numbers are never left to a model.</p>
+        <p>The same core serves a desktop popup and a phone-friendly web client — including full voice
+        in and out.</p>
+      </div>
+      <div class="p-h">How to read it</div>
+      <div class="p-body">
+        <p><b>Hover</b> any building or list entry for a plain description; <b>click to pin</b> it while
+        you talk. Numbered entries are flows — selecting one lights its path and sends dots along it.
+        Letters on roofs match the list on the left. Elevated platforms are services outside this repo.</p>
+        <p><b>Drag a building</b> to rearrange the city (its connections follow; your layout is saved).
+        Drag the ground to pan, scroll to zoom, and use <b>⟳ Rotate</b> to walk around the map.</p>
+      </div>
+      <div class="p-h">Ground truth</div>
+      <div class="p-body"><p>Every claim here carries a file citation from <b>main@4fd5c5b</b> — pin any
+      building to see its sources.</p></div>`;
+  }
+
+  function renderNode(id) {
+    const n = N[id];
+    const conns = nodeFlows(id).map(f =>
+      `<div class="conn" data-flow="${f}"><span class="code" style="background:${ACCENT}">${f}</span><span class="c-name">${FL[f].name}</span></div>`).join('');
+    panel.innerHTML = `
+      <div class="p-eyebrow">${{surfaces:'Surface',core:'Core pipeline',voice:'Voice stack',data:'Data at rest',ext:'External service'}[n.g]} · ${n.code}</div>
+      <div class="p-title">${n.name}</div>
+      <div class="p-sub">${n.one}</div>
+      <div class="p-h">What it does</div>
+      <div class="p-body">${n.what}</div>
+      <div class="p-h">Source</div>
+      <div>${fileChips(n.files)}</div>
+      <div class="p-h">Flows through here</div>
+      ${conns || '<div class="p-body"><p>—</p></div>'}`;
+  }
+
+  function renderFlow(f) {
+    const fl = FL[f];
+    const hops = ARROWS.filter(a => a.f === f).map(a =>
+      `<div class="hop"><span class="h-ends">${N[a.a].code} ${a.bi ? '⇄' : '→'} ${N[a.b].code}</span><span class="h-pay">${a.l}</span></div>`).join('');
+    panel.innerHTML = `
+      <div class="p-eyebrow">Flow ${f} of 8</div>
+      <div class="p-title">${fl.name}</div>
+      <div class="p-sub">${fl.sub}</div>
+      <div class="p-h">What happens</div>
+      <div class="p-body">${fl.what}</div>
+      <div class="p-h">The path</div>
+      ${hops}
+      <div class="p-h">Source</div>
+      <div>${fileChips(fl.cite)}</div>`;
+  }
+
+  panel.addEventListener('click', e => {
+    const c = e.target.closest('.conn'); if (!c) return;
+    setPin({ type: 'flow', key: c.dataset.flow });
+  });
+
+  // ================= state & highlighting =================
+  let pin = null, hover = null,
+      tracing = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  function effective() { return hover || pin; }
+
+  function applyState() {
+    const eff = effective();
+    const flEls = svg.querySelectorAll('.fl');
+    const bldEls = svg.querySelectorAll('.bld');
+    if (!eff) {
+      flEls.forEach(el => { const p = el.querySelector('path');
+        p.style.opacity = '.3'; p.style.stroke = INK; p.style.strokeWidth = '1.2';
+        el.querySelector('.fl-lab').style.opacity = '0'; });
+      bldEls.forEach(el => el.style.opacity = '1');
+      if (tracing) startDots(`.fl[data-flow="1"] path`); else stopDots();
+    } else if (eff.type === 'flow') {
+      const f = String(eff.key);
+      const touched = flowTouch(Number(f));
+      flEls.forEach(el => {
+        const on = el.dataset.flow === f;
+        const p = el.querySelector('path');
+        p.style.opacity = on ? '1' : '.05';
+        p.style.stroke = on ? ACCENT : INK;
+        p.style.strokeWidth = on ? '1.8' : '1.2';
+        el.querySelector('.fl-lab').style.opacity = on ? '1' : '0';
+      });
+      bldEls.forEach(el => el.style.opacity = touched.has(el.dataset.id) ? '1' : '.22');
+      if (tracing) startDots(`.fl[data-flow="${f}"] path`); else stopDots();
+    } else {
+      const id = eff.key;
+      const nbrs = new Set([id]);
+      ARROWS.forEach(a => { if (a.a === id) nbrs.add(a.b); if (a.b === id) nbrs.add(a.a); });
+      flEls.forEach(el => {
+        const on = el.dataset.a === id || el.dataset.b === id;
+        const p = el.querySelector('path');
+        p.style.opacity = on ? '1' : '.05';
+        p.style.stroke = on ? ACCENT : INK;
+        p.style.strokeWidth = on ? '1.8' : '1.2';
+        el.querySelector('.fl-lab').style.opacity = on ? '1' : '0';
+      });
+      bldEls.forEach(el => el.style.opacity = nbrs.has(el.dataset.id) ? '1' : '.22');
+      if (tracing) startDots(`.fl[data-a="${id}"] path, .fl[data-b="${id}"] path`); else stopDots();
+    }
+    document.querySelectorAll('.side .row').forEach(r => {
+      const isPin = pin && ((pin.type === 'flow' && r.dataset.flow === String(pin.key)) ||
+                            (pin.type === 'node' && r.dataset.node === pin.key));
+      r.classList.toggle('pinned', !!isPin);
+    });
+    if (eff) { eff.type === 'flow' ? renderFlow(Number(eff.key)) : renderNode(eff.key); }
+    else renderDefault();
+  }
+
+  function setPin(next) {
+    pin = (pin && next && pin.type === next.type && String(pin.key) === String(next.key)) ? null : next;
+    hover = null;
+    applyState();
+  }
+
+  // ================= dots =================
+  const dotsLayer = () => svg.querySelector('#dots');
+  let dotAnim = { raf: null, dots: [] };
+  function stopDots() {
+    if (dotAnim.raf) cancelAnimationFrame(dotAnim.raf);
+    dotAnim.raf = null; dotAnim.dots = [];
+    const dl = dotsLayer(); if (dl) dl.innerHTML = '';
+  }
+  function startDots(pathSelector) {
+    stopDots();
+    const ns = 'http://www.w3.org/2000/svg';
+    const dl = dotsLayer(); if (!dl) return;
+    svg.querySelectorAll(pathSelector).forEach((p, i) => {
+      const len = p.getTotalLength();
+      const c = document.createElementNS(ns, 'circle');
+      c.setAttribute('r', '3.4'); c.setAttribute('fill', ACCENT);
+      c.setAttribute('stroke', PAPER); c.setAttribute('stroke-width', '1.2');
+      dl.appendChild(c);
+      dotAnim.dots.push({ p, c, len, phase: (i * 0.37) % 1 });
+    });
+    let last = performance.now();
+    const tick = now => {
+      const dt = (now - last) / 1000; last = now;
+      dotAnim.dots.forEach(d => {
+        d.phase = (d.phase + dt * (90 / d.len)) % 1;
+        const pt = d.p.getPointAtLength(d.phase * d.len);
+        d.c.setAttribute('cx', pt.x); d.c.setAttribute('cy', pt.y);
+      });
+      dotAnim.raf = requestAnimationFrame(tick);
+    };
+    dotAnim.raf = requestAnimationFrame(tick);
+  }
+
+  // ================= sidebar events =================
+  const side = document.getElementById('side');
+  side.addEventListener('mouseover', e => {
+    const r = e.target.closest('.row'); if (!r) return;
+    hover = r.dataset.flow ? { type: 'flow', key: r.dataset.flow } : { type: 'node', key: r.dataset.node };
+    applyState();
+  });
+  side.addEventListener('mouseleave', () => { hover = null; applyState(); });
+  side.addEventListener('click', e => {
+    const r = e.target.closest('.row'); if (!r) return;
+    setPin(r.dataset.flow ? { type: 'flow', key: r.dataset.flow } : { type: 'node', key: r.dataset.node });
+  });
+
+  // ================= map hover / tooltip =================
+  const tip = document.getElementById('tip');
+  svg.addEventListener('mouseover', e => {
+    if (ptr && ptr.moved) return;
+    const g = e.target.closest('.bld');
+    const fl = e.target.closest('.fl');
+    if (g) {
+      hover = { type: 'node', key: g.dataset.id };
+      const n = N[g.dataset.id];
+      tip.innerHTML = `<b>${n.code} · ${n.name}</b><span>${n.one}</span>`;
+      tip.style.display = 'block';
+      applyState();
+    } else if (fl) {
+      hover = { type: 'flow', key: fl.dataset.flow };
+      const f = FL[Number(fl.dataset.flow)];
+      tip.innerHTML = `<b>Flow ${fl.dataset.flow} · ${f.name}</b><span>${f.sub}</span>`;
+      tip.style.display = 'block';
+      applyState();
+    }
+  });
+  svg.addEventListener('mousemove', e => {
+    if (tip.style.display === 'block') {
+      const r = maparea.getBoundingClientRect();
+      let tx = e.clientX - r.left + 14, ty = e.clientY - r.top + 14;
+      if (tx > r.width - 260) tx = e.clientX - r.left - 254;
+      if (ty > r.height - 70) ty = e.clientY - r.top - 60;
+      tip.style.left = tx + 'px'; tip.style.top = ty + 'px';
+    }
+  });
+  svg.addEventListener('mouseout', e => {
+    if (!e.relatedTarget || (!e.relatedTarget.closest || (!e.relatedTarget.closest('.bld') && !e.relatedTarget.closest('.fl')))) {
+      hover = null; tip.style.display = 'none'; applyState();
+    }
+  });
+  svg.addEventListener('click', e => {
+    if (justDragged) { justDragged = false; return; }
+    const g = e.target.closest('.bld');
+    const fl = e.target.closest('.fl');
+    if (g) setPin({ type: 'node', key: g.dataset.id });
+    else if (fl) setPin({ type: 'flow', key: fl.dataset.flow });
+    else setPin(null);
+  });
+  svg.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const g = e.target.closest && e.target.closest('.bld');
+    if (g) { e.preventDefault(); setPin({ type: 'node', key: g.dataset.id }); }
+  });
+
+  // ================= drag: buildings & pan =================
+  let ptr = null, justDragged = false;
+
+  maparea.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    if (e.target.closest && e.target.closest('.zbtns')) return;
+    e.preventDefault(); // stop native text selection from hijacking the drag
+    try { const sel = window.getSelection(); if (sel && sel.removeAllRanges) sel.removeAllRanges(); } catch (err) {}
+    const g = e.target.closest && e.target.closest('.bld');
+    ptr = {
+      id: g ? g.dataset.id : null, el: g || null,
+      sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY,
+      s0: clientToSvgPt(e.clientX, e.clientY),
+      moved: false, arrows: null, pid: e.pointerId,
+    };
+    if (g) {
+      const id = g.dataset.id;
+      ptr.nx0 = N[id].x; ptr.ny0 = N[id].y;
+      ptr.arrows = [];
+      ARROWS.forEach((ar, i) => {
+        if (ar.a === id || ar.b === id) {
+          const pEl = svg.querySelector('#ap-' + i);
+          const labEl = pEl && pEl.parentNode.querySelector('.fl-lab');
+          if (pEl) ptr.arrows.push({ ar, pEl, labEl });
+        }
+      });
+    }
+  });
+
+  maparea.addEventListener('pointermove', e => {
+    if (!ptr) return;
+    const dxc = e.clientX - ptr.lx, dyc = e.clientY - ptr.ly;
+    ptr.lx = e.clientX; ptr.ly = e.clientY;
+    if (!ptr.moved) {
+      if (Math.hypot(e.clientX - ptr.sx, e.clientY - ptr.sy) < 4) return;
+      ptr.moved = true;
+      // capture only once a real drag starts, so plain clicks stay ordinary clicks
+      try { maparea.setPointerCapture(ptr.pid); } catch (err) {}
+      if (ptr.el) { ptr.el.classList.add('dragging'); tip.style.display = 'none'; }
+    }
+    if (ptr.id) {
+      // absolute tracking: the building stays glued under the cursor
+      const cur = clientToSvgPt(e.clientX, e.clientY);
+      const dsxT = cur[0] - ptr.s0[0], dsyT = cur[1] - ptr.s0[1];
+      const Dgx = (dsxT / TW + dsyT / TH) / 2;
+      const Dgy = (dsyT / TH - dsxT / TW) / 2;
+      const [bx, by] = invVec(Dgx, Dgy);
+      if (!isFinite(bx) || !isFinite(by)) return;
+      const n = N[ptr.id];
+      n.x = clampG(ptr.nx0 + bx); n.y = clampG(ptr.ny0 + by);
+      computeR();
+      // derive the visual translate from the (possibly clamped) real position
+      const [ugx, ugy] = fwdVec(n.x - ptr.nx0, n.y - ptr.ny0);
+      const tsx = (ugx - ugy) * TW, tsy = (ugx + ugy) * TH;
+      ptr.el.setAttribute('transform', `translate(${tsx.toFixed(1)} ${tsy.toFixed(1)})`);
+      ptr.arrows.forEach(a => {
+        const geo = arrowGeom(a.ar);
+        a.pEl.setAttribute('d', geo.d);
+        if (a.labEl) { a.labEl.setAttribute('x', geo.lx); a.labEl.setAttribute('y', geo.ly - 6); }
+      });
+      dotAnim.dots.forEach(d => {
+        if (ptr.arrows.some(a => a.pEl === d.p)) d.len = d.p.getTotalLength();
+      });
+    } else {
+      const s = svgScale();
+      const nx = view.x - dxc / s, ny = view.y - dyc / s;
+      if (isFinite(nx) && isFinite(ny)) { view.x = nx; view.y = ny; applyView(); }
+    }
+  });
+
+  function endPointer(e) {
+    if (!ptr) return;
+    if (ptr.moved) {
+      justDragged = true;
+      if (ptr.id) {
+        saveLayout();
+        renderScene();
+        applyState();
+      }
+    }
+    ptr = null;
+  }
+  maparea.addEventListener('pointerup', endPointer);
+  maparea.addEventListener('pointercancel', endPointer);
+  // after a captured drag, the resulting click targets the map area itself and
+  // would never reach the svg handler that clears the flag — intercept it here
+  maparea.addEventListener('click', e => {
+    if (justDragged && !(e.target.closest && e.target.closest('.bld,.fl'))) {
+      justDragged = false; e.stopPropagation();
+    }
+  }, true);
+
+  // ================= top bar =================
+  const btnRot = document.getElementById('btn-rot');
+  const compass = document.getElementById('compass');
+  btnRot.addEventListener('click', () => {
+    ROT = (ROT + 1) % 4;
+    btnRot.textContent = '⟳ Rotate · ' + VIEWS[ROT];
+    compass.textContent = 'View ' + VIEWS[ROT];
+    renderScene();
+    fitView();
+    applyState();
+  });
+
+  const btnTrace = document.getElementById('btn-trace');
+  btnTrace.classList.toggle('on', tracing);
+  btnTrace.textContent = tracing ? '■ Pause the dots' : '▶ Run the dots';
+  btnTrace.addEventListener('click', () => {
+    tracing = !tracing;
+    btnTrace.classList.toggle('on', tracing);
+    btnTrace.textContent = tracing ? '■ Pause the dots' : '▶ Run the dots';
+    applyState();
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    pin = null; hover = null; ROT = 0;
+    btnRot.textContent = '⟳ Rotate · NE'; compass.textContent = 'View NE';
+    renderScene(); fitView(); applyState();
+  });
+
+  document.getElementById('btn-layout').addEventListener('click', () => {
+    NODES.forEach(n => { n.x = ORIG[n.id].x; n.y = ORIG[n.id].y; });
+    try { localStorage.removeItem('rva-layout-v1'); } catch (e) {}
+    renderScene(); applyState();
+  });
+
+  // ================= boot =================
+  renderScene();
+  fitView();
+  applyState();
+})();
+</script>

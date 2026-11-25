@@ -1,0 +1,58 @@
+/* base.css: the few things every page shares.
+   Pages are allowed to look nothing alike. What stays constant is the altimeter mark in
+   the top-right corner (it morphs between pages with a view transition), the two faces,
+   and the one easing curve every motion uses. */
+
+@view-transition { navigation: auto; }
+
+/* Fonts are served from this site (fonts/, licences in fonts/LICENSE.txt): no request to a
+   third party before the page can paint, and nothing for anyone to log. Latin subsets. */
+@font-face { font-family: "Archivo"; src: url(fonts/archivo.woff2) format("woff2"); font-weight: 100 900; font-stretch: 62% 125%; font-display: swap; }
+@font-face { font-family: "Faculty Glyphic"; src: url(fonts/faculty-glyphic.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url(fonts/plex-mono-400.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url(fonts/plex-mono-500.woff2) format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "VT323"; src: url(fonts/vt323.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+
+:root {
+  --display: "Faculty Glyphic", "Albertus", "Optima", Georgia, serif;
+  --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --ease: cubic-bezier(.3, .7, .2, 1.1);  /* one slightly springy ease, used everywhere */
+  --dur: .45s;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { margin: 0; font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+img, canvas, svg, video { display: block; max-width: 100%; }
+a { color: inherit; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* The altimeter mark. Every page has one, top right, saying where the page sits. */
+.alt-mark {
+  view-transition-name: altimeter;
+  position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); right: 18px; z-index: 50;
+  font: 700 13px/1 var(--sans); font-stretch: 88%; letter-spacing: .06em; text-transform: uppercase;
+  text-decoration: none; display: flex; align-items: baseline; gap: .6em;
+  font-variant-numeric: tabular-nums;
+}
+.alt-mark b { font-size: 22px; letter-spacing: 0; font-stretch: 100%; }
+
+/* Contact, on every page: bottom right, in whatever ink the page uses. */
+.contact {
+  position: fixed; right: 18px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 50;
+  font: 700 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; text-decoration: none;
+  border-bottom: 1.5px solid currentColor; padding-bottom: 2px;
+}
+.contact:hover, .contact:focus-visible { border-bottom-width: 3px; outline: none; }
+
+::view-transition-old(altimeter), ::view-transition-new(altimeter) { animation-duration: var(--dur); animation-timing-function: var(--ease); }
+::view-transition-old(root) { animation: vt-out var(--dur) var(--ease) both; }
+::view-transition-new(root) { animation: vt-in var(--dur) var(--ease) both; }
+@keyframes vt-out { to { opacity: 0; transform: translateY(-2vh); } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(3vh); } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+  *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
+}

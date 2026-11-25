@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The roastery query system · Daniel Humphries</title>
+<meta name="description" content="One question box over everything a roastery knows about its coffee. A small model plans, plain Python fetches and counts, a second model phrases only what was fetched.">
+<meta name="theme-color" content="#120b05">
+<link rel="canonical" href="https://nucleard.github.io/daniel/query.html">
+<meta property="og:title" content="The roastery query system · Daniel Humphries">
+<meta property="og:description" content="Ask a roastery a question at four o'clock on the floor. Watch it plan, fetch, count and answer.">
+<meta property="og:image" content="https://nucleard.github.io/daniel/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/faculty-glyphic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/vt323.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* One room on the site is a terminal. Amber phosphor on a brown-black tube: the roastery
+     floor at four o'clock, someone asking the vault a question. */
+  :root {
+    --tube: #120b05; --amber: #ffb43a; --amber-2: rgba(255, 180, 58, .72); --amber-3: rgba(255, 180, 58, .42); --amber-4: rgba(255, 180, 58, .14);
+    --hot: #fff1c9; --vt: "VT323", ui-monospace, Consolas, monospace;
+  }
+  html { background: var(--tube); }
+  body { color: var(--amber); font-size: 17px; line-height: 1.58; font-stretch: 95%; }
+  ::selection { background: var(--amber); color: var(--tube); }
+  .top { position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); left: 18px; z-index: 30; font: 700 13px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; text-decoration: none; }
+  .wrap { padding: 0 6vw; max-width: 1180px; margin: 0 auto; }
+  header { padding: 15vh 0 4vh; max-width: 46rem; }
+  .kicker { font: 650 12.5px/1.3 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--amber-2); margin: 0 0 1.2em; }
+  h1 { font-family: var(--display); font-weight: 400; font-size: clamp(52px, 7.4vw, 118px); line-height: .9; margin: 0 0 .35em; text-shadow: 0 0 18px rgba(255, 170, 40, .35); }
+  h2 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 3.2vw, 48px); line-height: 1; margin: 0 0 .55em; }
+  p { margin: 0 0 1em; }
+  .soft { color: var(--amber-2); }
+
+  /* the screen */
+  .screen { position: relative; border: 2px solid var(--amber-3); border-radius: 18px / 24px; padding: 22px 26px 26px; min-height: 34rem; overflow: hidden; background: #0d0703; }
+  .screen::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, .26) 2px 3px); }
+  .screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 4; box-shadow: inset 0 0 90px rgba(0, 0, 0, .85); border-radius: inherit; }
+  .term { position: relative; z-index: 2; font: 400 21px/1.22 var(--vt); color: var(--amber); text-shadow: 0 0 5px rgba(255, 170, 40, .55), 0 0 14px rgba(255, 150, 20, .22); white-space: pre-wrap; word-break: break-word; }
+  .term .dim { color: var(--amber-3); text-shadow: none; }
+  .term .hot { color: var(--hot); }
+  .term .tag { display: inline-block; min-width: 7.5em; color: var(--tube); background: var(--amber); text-shadow: none; padding: 0 .35em; margin-right: .6em; }
+  .term .tag.py { background: var(--amber-2); }
+  .term .cur { display: inline-block; width: .55em; height: .95em; vertical-align: -2px; background: var(--amber); animation: blink 1s steps(2) infinite; box-shadow: 0 0 8px rgba(255, 170, 40, .6); }
+  @keyframes blink { 50% { opacity: 0; } }
+  .flick { animation: flick 5s infinite; }
+  @keyframes flick { 0%, 97%, 100% { opacity: 1; } 98% { opacity: .92; } }
+  .asks { display: flex; flex-wrap: wrap; gap: 8px 10px; margin: 0 0 1.2rem; position: relative; z-index: 5; }
+  .asks button { all: unset; cursor: pointer; font: 400 19px/1.1 var(--vt); padding: 6px 10px; border: 1.5px solid var(--amber-3); color: var(--amber); }
+  .asks button:hover, .asks button:focus-visible { border-color: var(--amber); background: var(--amber-4); outline: none; }
+  .asks button[aria-pressed="true"] { background: var(--amber); color: var(--tube); border-color: var(--amber); }
+  form.ask { display: flex; gap: 10px; margin: 0 0 1.4rem; position: relative; z-index: 5; }
+  form.ask input { all: unset; flex: 1; font: 400 22px/1.2 var(--vt); border-bottom: 1.5px solid var(--amber-3); padding: 4px 0; color: var(--hot); }
+  form.ask input::placeholder { color: var(--amber-3); }
+  form.ask input:focus-visible { border-color: var(--hot); }
+  form.ask button:focus-visible { outline: 1px dashed var(--amber); outline-offset: 3px; }
+  form.ask button { all: unset; cursor: pointer; font: 400 20px/1 var(--vt); padding: 6px 12px; background: var(--amber); color: var(--tube); }
+  .demo-note { font: 600 11.5px/1.4 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--amber-3); margin-top: .8rem; }
+
+  section { padding: 12vh 0 0; }
+  .rail { display: grid; grid-template-columns: 9rem minmax(0, 38rem); gap: 0 2rem; margin-top: 1.4rem; }
+  .rail dt { font: 700 12px/1.6 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--amber-3); padding-top: .9rem; border-top: 1px solid var(--amber-4); }
+  .rail dd { margin: 0; padding: .8rem 0 .6rem; border-top: 1px solid var(--amber-4); color: var(--amber-2); }
+  a.go { display: inline-flex; gap: .55em; font: 650 16px/1.2 var(--sans); text-decoration: none; border-bottom: 2px solid currentColor; padding-bottom: 3px; transition: gap var(--dur) var(--ease); }
+  a.go::after { content: "\2192"; }
+  a.go:hover { gap: 1em; }
+  .close { padding: 12vh 0 16vh; max-width: 44rem; }
+  .close a { font-weight: 650; text-decoration: none; border-bottom: 2px solid currentColor; }
+
+  @media (max-width: 760px) {
+    .screen { padding: 16px 14px 18px; border-radius: 12px / 16px; }
+    .term { font-size: 18px; }
+    .rail { grid-template-columns: minmax(0, 1fr); }
+    .rail dd { border-top: 0; padding-top: .2rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { .flick { animation: none; } }
+</style>
+</head>
+<body>
+<a class="top" href="index.html">Daniel Humphries</a>
+<a class="contact" href="mailto:coffeedataanalysis@proton.me">Contact</a>
+<a class="alt-mark" href="index.html" title="Back to the list">Coffee and AI · the query system</a>
+
+<div class="wrap">
+  <header>
+    <p class="kicker">Coffee × AI · The roastery</p>
+    <h1>The query system</h1>
+    <p>A question-answering system over everything a roastery knows about its coffee: Cropster roast data, Shopify orders, green quality readings (moisture, water activity, roast colour), cupping notes, customer records, meeting notes. Anyone on the team asks from their phone and gets an answer that quotes the source.</p>
+    <p class="soft">When a roastery's production grows thirty times in five years, its information ends up spread across more systems than one person can keep track of. The person on the floor at four o'clock needs to find one fact quickly, and this system gives the whole team one place to ask.</p>
+  </header>
+
+  <div class="screen flick" id="screen">
+    <div class="asks" id="asks" role="group" aria-label="Questions to ask"></div>
+    <form class="ask" id="ask"><input id="q" placeholder="or type a question" aria-label="Your question" autocomplete="off"><button type="submit">Ask</button></form>
+    <div class="term" id="term"></div>
+    <p class="sr" id="live" aria-live="polite"></p>
+  </div>
+  <p class="demo-note">The demo vault holds invented coffees, customers and numbers. The real one is in use by one roastery's team and stays private.</p>
+
+  <section>
+    <h2>How answers are kept to the records</h2>
+    <dl class="rail">
+      <dt>Source</dt><dd>The system answers only from the vault, which is around five hundred markdown files, some written by hand and some synced by machine.</dd>
+      <dt>Models</dt><dd>A small model turns the question into a fetch plan and plain Python runs the plan. A second model writes the answer from the fetched records and names the file each part came from. The second model is given only those records, so it has no other source to cite.</dd>
+      <dt>Numbers</dt><dd>Python does the arithmetic for revenue, kilos and top customers from the order ledgers. The model puts the result into words, and the answer says what was excluded.</dd>
+      <dt>Shared files</dt><dd>Sync jobs and people write to the same documents. A sync job rewrites only its own marked section of a customer note and leaves my notes around it untouched.</dd>
+      <dt>Voice</dt><dd>You can dictate in Spanish, French, Dutch or English. The pipeline works in English and translates the question and the answer.</dd>
+    </dl>
+    <p class="soft" style="max-width:44rem;margin-top:2rem">The system has been live for the team since August 2026. The front end is a phone-sized web page. Most of the work is in the back end, which consists of the sync jobs, the fetch planner, the ledger parsers and the vault.</p>
+    <p style="max-width:44rem">The system contains nothing specific to coffee, so it could be set up in the same way for a winery's cellar records, a restaurant's suppliers and bookings, or a label's samples and orders.</p>
+  </section>
+
+  <section class="close">
+    <p>If your business has information in too many places, coffee or not, write to <a href="mailto:coffeedataanalysis@proton.me">coffeedataanalysis@proton.me</a>.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Each run: what the planner writes, what Python reads and computes, what the phraser says.
+  const RUNS = [
+    { ask: 'How much Guji natural did we roast in August?', keys: ['guji', 'roast', 'august', 'how much', 'kilo'],
+      plan: '{ "intent": "roasted_volume",\n  "coffee": "Ethiopia Guji Natural",\n  "period": "2026-08",\n  "fetch": ["Roasting/Batch log 2026-08.md"],\n  "compute": "sum(batch.out_kg) where coffee = intent.coffee" }',
+      fetch: ['read  Roasting/Batch log 2026-08.md            214 batches', 'match coffee = "Ethiopia Guji Natural"          19 batches'],
+      compute: ['sum out_kg  = 412.6', 'machines    = { W15: 19 }', 'profiles    = { G-NAT-03: 17, G-NAT-04: 2 }'],
+      answer: '412.6 kg of the Guji natural in August, over 19 batches, all on the W15. Seventeen used profile G-NAT-03 and two the new G-NAT-04.',
+      src: 'Roasting/Batch log 2026-08.md' },
+    { ask: 'What did we say about the Huila washed the last three times?', keys: ['huila', 'say', 'cupp', 'taste', 'last'],
+      plan: '{ "intent": "tasting_history",\n  "coffee": "Colombia Huila Washed",\n  "fetch": ["Cupping and QC/*Huila Washed*.md"],\n  "limit": 3, "order": "date desc" }',
+      fetch: ['glob  Cupping and QC/*Huila Washed*.md           11 notes', 'take  3 most recent: 2026-09-18, 2026-08-29, 2026-08-07'],
+      compute: ['scores      = [85.5, 86.0, 85.75]', 'no arithmetic asked; passing quotes through'],
+      answer: '18 September: "red apple and panela, cleaner than last week." 29 August: "caramel, a bit of orange, body fuller." 7 August: "sweet but flat on the finish, check the roast." Scores 85.75, 86.0 and 85.5.',
+      src: 'Cupping and QC/2026-09-18 QC.md · 2026-08-29 QC.md · 2026-08-07 QC.md' },
+    { ask: 'Which cafés have not ordered in six weeks?', keys: ['caf', 'order', 'customer', 'weeks', 'haven', 'not'],
+      plan: '{ "intent": "lapsed_customers",\n  "segment": "cafe",\n  "since_days": 42,\n  "fetch": ["Business/Orders/ledger-2026.md", "Business/Customers/*.md"],\n  "compute": "customers where last_order < today - 42d" }',
+      fetch: ['read  Business/Orders/ledger-2026.md          1,806 orders', 'read  Business/Customers/*.md                   97 notes', 'filter segment = cafe                             41 customers'],
+      compute: ['last_order < 2026-08-19', '3 match; excluded 2 with a note "closed for renovation"'],
+      answer: 'Three cafés: Café Aster (last order 4 August), Molen 7 (29 July) and Het Blauwe Uur (12 August). Two more have gone quiet, but their notes say they are closed for renovation, so I left them out.',
+      src: 'Business/Orders/ledger-2026.md · Business/Customers/' },
+    { ask: 'What is the moisture on the new Brazil lot?', keys: ['moisture', 'brazil', 'water activity', 'green', 'lot'],
+      plan: '{ "intent": "green_quality",\n  "coffee": "Brazil Sul de Minas",\n  "latest_lot": true,\n  "fetch": ["Green/Brazil Sul de Minas 26-114.md"] }',
+      fetch: ['read  Green/Brazil Sul de Minas 26-114.md        1 note', 'section  ## Quality readings (fenced, synced)'],
+      compute: ['moisture   = 10.8 %', 'aw         = 0.56', 'measured   = 2026-09-12'],
+      answer: 'Lot 26-114: 10.8% moisture and a water activity of 0.56, measured on 12 September.',
+      src: 'Green/Brazil Sul de Minas 26-114.md' },
+    { ask: 'Hoeveel kilo Colombia hebben we deze week verkocht?', keys: ['hoeveel', 'verkocht', 'deze week', 'kilo colombia'],
+      plan: '// translated at the edge: "How many kilos of Colombia did we sell this week?"\n{ "intent": "sold_volume",\n  "origin": "Colombia",\n  "period": "2026-W40",\n  "fetch": ["Business/Orders/ledger-2026.md"],\n  "compute": "sum(line.kg) where origin = Colombia" }',
+      fetch: ['read  Business/Orders/ledger-2026.md          1,806 orders', 'match week 40, origin = Colombia                 23 lines'],
+      compute: ['sum kg      = 96.5', 'wholesale   = 84.0', 'webshop     = 12.5'],
+      answer: '96,5 kilo Colombia deze week: 84 kilo groothandel en 12,5 kilo via de webshop.',
+      src: 'Business/Orders/ledger-2026.md' },
+  ];
+
+  const term = $('#term'), asks = $('#asks');
+  let job = 0;
+  RUNS.forEach((r, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = r.ask; b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => run(i));
+    asks.appendChild(b);
+  });
+  $('#ask').addEventListener('submit', e => {
+    e.preventDefault();
+    const q = $('#q').value.toLowerCase().trim();
+    if (!q) return;
+    let best = -1, bestScore = 0;
+    RUNS.forEach((r, i) => { const s = r.keys.reduce((a, k) => a + (q.includes(k) ? 1 : 0), 0); if (s > bestScore) { bestScore = s; best = i; } });
+    if (best < 0) { unknown($('#q').value.trim()); return; }
+    run(best, $('#q').value.trim());
+  });
+
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  const live = $('#live');
+  // Every run owns a job number. Anything a run awaits checks it afterwards and quits
+  // quietly if a newer question has started, so two answers never type over each other.
+  const STOP = {};
+  function wait(ms, me) {
+    return new Promise(res => setTimeout(res, reduce ? 0 : ms)).then(() => { if (me !== job) throw STOP; });
+  }
+  async function type(html, text, speed, me) {
+    if (reduce) { if (me !== job) throw STOP; term.innerHTML = html + esc(text); return html + esc(text); }
+    for (let i = 1; i <= text.length; i += 2) {
+      if (me !== job) throw STOP;
+      term.innerHTML = html + esc(text.slice(0, i)) + '<span class="cur"></span>';
+      await wait(speed, me);
+    }
+    return html + esc(text);
+  }
+  async function run(i, typed) {
+    const me = ++job, r = RUNS[i];
+    asks.querySelectorAll('button').forEach((b, k) => b.setAttribute('aria-pressed', String(k === i)));
+    const q = typed || r.ask;
+    live.textContent = '';
+    try {
+      let h = '<span class="dim">vault  512 files · synced 06:00 · demo</span>\n\n';
+      h = await type(h + '<span class="hot">&gt; </span>', q, 18, me) + '\n\n';
+      await wait(250, me);
+      h += '<span class="tag">1 planner</span><span class="dim">small model · turns the question into a fetch plan</span>\n';
+      h = await type(h, r.plan, 6, me) + '\n\n';
+      await wait(300, me);
+      h += '<span class="tag py">2 python</span><span class="dim">runs the plan</span>\n';
+      for (const line of r.fetch) { h = await type(h, '  ' + line, 5, me) + '\n'; await wait(160, me); }
+      for (const line of r.compute) { h = await type(h, '  ' + line, 5, me) + '\n'; await wait(120, me); }
+      h += '\n';
+      await wait(300, me);
+      h += '<span class="tag">3 phraser</span><span class="dim">second model · sees only what Python returned</span>\n';
+      h = await type(h + '<span class="hot">', r.answer, 14, me);
+      h += '</span>\n\n<span class="dim">source  ' + esc(r.src) + '</span>';
+      term.innerHTML = h;
+      live.textContent = r.answer + ' Source: ' + r.src + '.';
+    } catch (e) { if (e !== STOP) throw e; }
+  }
+  function unknown(q) {
+    job++;
+    asks.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    const msg = 'This demo vault only holds a handful of things: roast batches, cupping notes, café orders, green readings. The planner found nothing to fetch for that question, so the answer is “I don’t know”. The real system gives the same answer when the vault has no matching records.';
+    term.innerHTML = '<span class="tag">planner</span>' + esc(q) + '\n\n<span class="dim">' + esc(msg) + '</span>';
+    live.textContent = msg;
+  }
+
+  // boot, then the first question on its own
+  (async function boot() {
+    const me = ++job;
+    let h = '';
+    const lines = ['ROASTERY VAULT  query console', 'loading lot list ............ 143 lots', 'loading customers ........... 97 notes', 'ledger ...................... 1,806 orders, 2026', 'ready.'];
+    try {
+      for (const l of lines) { h = await type(h + '<span class="dim">', l, 4, me) + '</span>\n'; await wait(120, me); }
+      await wait(600, me);
+      run(0);
+    } catch (e) { if (e !== STOP) throw e; }
+  })();
+})();
+</script>
+</body>
+</html>

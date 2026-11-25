@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daniel Humphries: coffee and AI</title>
+<meta name="description" content="AI systems built for coffee work by Daniel Humphries, head roaster at Coffee &amp; Coconuts in Amsterdam: a roastery query system, a cupping archive, farm climate reports and a corpus of published coffee descriptions.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/faculty-glyphic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="base.css">
+<style>
+  :root {
+    --paper: #eef0ec;      /* cupping-room grey-white */
+    --ink: #16201c;
+    --soft: #55625c;
+    --rule: #b9c1bb;
+    --green: #2f6b4f;      /* green coffee */
+    --cherry: #c2382e;     /* ripe cherry */
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  html { scroll-behavior: smooth; }
+  body { background: var(--paper); color: var(--ink); font: 400 17px/1.55 var(--sans); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px 120px; }
+
+  nav { display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: baseline; padding: 22px 0 0;
+        font: 600 12px/1.4 var(--sans); letter-spacing: .12em; text-transform: uppercase; }
+  nav a { text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px; }
+  nav a:hover, nav a:focus-visible { border-bottom-color: currentColor; outline: none; }
+  nav .who { margin-right: auto; }
+
+  header { padding: 11vh 0 9vh; border-bottom: 1.5px solid var(--ink); }
+  h1 { font: 400 clamp(44px, 8.2vw, 104px)/.98 var(--display); letter-spacing: -.012em; margin: 0 0 .5em; }
+  h1 span { color: var(--green); }
+  .lede { max-width: 43rem; font-size: clamp(18px, 1.55vw, 21px); line-height: 1.5; margin: 0 0 1em; }
+  .lede.more { font-size: 17px; line-height: 1.55; }
+  .strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .9rem; max-width: 66rem; margin: 1.7rem 0 1.9rem; padding: 0; list-style: none; }
+  .strip a { display: block; text-decoration: none; font: 500 11.5px/1.3 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--soft); }
+  .strip img { width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; border: 1px solid var(--rule); background: var(--ink); margin-bottom: .45rem; }
+  .strip a:hover, .strip a:focus-visible { color: var(--ink); outline: none; }
+  .strip a:hover img, .strip a:focus-visible img { border-color: var(--ink); outline: 2px solid var(--ink); }
+
+  h2 { font: 400 clamp(28px, 3.4vw, 42px)/1.08 var(--display); margin: 0 0 .5em; }
+  .label { font: 500 12px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--soft); margin: 0 0 .9rem; }
+  .label b { font-weight: 500; color: var(--cherry); }
+
+  .sys { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 26rem); gap: 0 2.2rem;
+         padding: 3.2rem 0; border-bottom: 1px solid var(--rule); }
+  .sys .n { font: 400 clamp(30px, 3.4vw, 42px)/1.08 var(--display); color: var(--green); }
+  .sys p { margin: 0 0 .9em; max-width: 36rem; }
+  .sys ul { margin: 0 0 1em; padding: 0 0 0 1.1em; max-width: 36rem; }
+  .sys li { margin: 0 0 .35em; }
+  .shot { margin: .35rem 0 1.1rem; }
+  .shot a { display: block; }
+  .shot img, .shot video { width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; border: 1px solid var(--rule); background: var(--ink); }
+  .shot a:hover img, .shot a:focus-visible img, .shot a:hover video, .shot a:focus-visible video { border-color: var(--ink); outline: 2px solid var(--ink); }
+  .shot figcaption { font: 400 12px/1.45 var(--mono); color: var(--soft); margin-top: .5rem; }
+  .small .shot { margin: 0 0 .9rem; }
+  .facts { margin: 0; font: 400 13px/1.5 var(--mono); }
+  .facts div { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-top: 1px solid var(--rule); }
+  .facts div:last-child { border-bottom: 1px solid var(--rule); }
+  .facts dt { color: var(--soft); }
+  .facts dd { margin: 0; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; }
+  a.go { display: inline-block; margin-top: .3rem; font: 700 13px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase;
+         text-decoration: none; color: var(--paper); background: var(--ink); padding: .85em 1.1em; transition: background var(--dur) var(--ease); }
+  a.go:hover, a.go:focus-visible { background: var(--green); outline: none; }
+
+  section.plain { padding: 4.5rem 0 0; }
+  .small { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 2.2rem; }
+  .small > div { border-top: 1.5px solid var(--ink); padding: 1rem 0 1.6rem; }
+  .small h3 { font: 400 22px/1.15 var(--display); margin: 0 0 .4em; }
+  .small p { margin: 0 0 .6em; font-size: 15.5px; }
+  .small .label { margin: 0; }
+
+  .how { max-width: 43rem; margin: 0; }
+  .rule-list { max-width: 46rem; margin: 0; padding: 0; list-style: none; counter-reset: r; }
+  .rule-list li { counter-increment: r; display: grid; grid-template-columns: 2.4rem 1fr; padding: .8rem 0; border-top: 1px solid var(--rule); }
+  .rule-list li::before { content: counter(r); font: 400 22px/1.2 var(--display); color: var(--green); }
+
+  .cv { max-width: 52rem; margin: 0; padding: 0 0 0 1.2em; font-size: 15.5px; line-height: 1.45; }
+  .cv li { margin: 0 0 .28em; }
+
+  footer { margin-top: 5rem; padding-top: 1.4rem; border-top: 1.5px solid var(--ink); display: flex; flex-wrap: wrap; gap: .6rem 2rem; justify-content: space-between; }
+  footer a { font-weight: 600; }
+  footer span { color: var(--soft); font-size: 14px; }
+
+  @media (max-width: 860px) {
+    .wrap { padding: 0 18px 90px; }
+    .strip { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 44%; overflow-x: auto; margin-right: -18px; padding: 2px 18px 6px 2px; scroll-snap-type: x proximity; }
+    .strip li { scroll-snap-align: start; }
+    .sys { grid-template-columns: minmax(0, 1fr); padding: 2.4rem 0; }
+    .sys .n { margin-bottom: .2rem; }
+    .shot { margin-top: 1.2rem; }
+    .small { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav aria-label="Sections">
+  <a class="who" href="#top">Daniel Humphries</a>
+  <a href="#systems">Systems</a>
+  <a href="#rules">How I build</a>
+  <a href="#coffee">Coffee</a>
+  <a href="mailto:coffeedataanalysis@proton.me">Contact</a>
+</nav>
+
+<header id="top">
+  <h1>Coffee <span>and</span> AI</h1>
+  <p class="lede">I have been working in coffee for over 20 years, from my first shift on the bar in the US, through teaching sensory evaluation to producers in Latin America and Africa, to running a green importing company in Southeast Asia, to my home today, as head roaster of a growing company in the Netherlands.</p>
+  <ul class="strip" aria-label="The systems on this page">
+    <li><a href="#gas"><img src="media/gas-energy.jpg" width="1600" height="1000" alt="">Gas dashboard</a></li>
+    <li><a href="#query"><img src="media/app-atlas.jpg" width="1120" height="700" alt="">Query system</a></li>
+    <li><a href="#vault"><img src="media/cupping-graph.jpg" width="1120" height="700" alt="">Cupping vault</a></li>
+    <li><a href="#climate"><img src="media/climate.jpg" width="1280" height="800" alt="">Climate reports</a></li>
+    <li><a href="#corpus"><img src="media/corpus.jpg" width="1584" height="990" alt="">Evaluation corpus</a></li>
+    <li><a href="#galaxy"><img src="media/vault-galaxy.jpg" width="1120" height="700" alt="">Vault galaxy</a></li>
+  </ul>
+  <p class="lede more">Since teaching myself how to code in 2020, I have been diving deeper and deeper into the ways that computing can help the coffee industry. Working with frontier AI models, with agentic architecture and coding, and running open-source models locally, I have developed a suite of tools, from the eminently practical to the highly speculative, with the same goal: harness the power of artificial intelligence in sane, approachable ways that actually benefit people who work in coffee and which lead to a better business and better coffee.</p>
+  <p class="lede more">This page demos some of the concepts I've developed and which are actually in use by coffee professionals today. Each project rests on a deeper code base which is available upon request. Again, the emphasis is on tools which actually get used, which are easy to access, and which actually help coffee professionals do their jobs.</p>
+</header>
+
+<main id="systems">
+
+  <article class="sys" id="gas">
+    <div class="n">01</div>
+    <div>
+      <h2>Gas use dashboard</h2>
+      <p class="label">Built with the <b>University of Amsterdam</b>, 2026</p>
+      <p>Some people associate AI with wasting energy. Properly applied, AI can optimize systems and find ways to use significantly <em>less</em> energy than we are already currently using (not some theoretical energy-use in the future). That was the idea behind this project: to roast the same profile with less gas.</p>
+      <p>In 2026 Coffee &amp; Coconuts took part in AI in je Bedrijf, a programme that pairs small Amsterdam companies with student teams from the University of Amsterdam and the Amsterdam University of Applied Sciences. A team of four business IT students built a dashboard for the gas use of our Giesen 15.</p>
+      <ul>
+        <li>It reads the roast exports from Cropster, splits each roast into drying, Maillard and development, and totals the gas in each phase.</li>
+        <li>Each roast's temperature and gas curves are compared with a reference roast of the same coffee, and every batch is ranked on gas use and on how closely it followed the profile.</li>
+        <li>Roasts are linked to the weather on the day and to moisture and density readings of the green coffee.</li>
+        <li>A model reads the first minutes of a roast and predicts its total gas use and how far it will drift from the profile.</li>
+      </ul>
+      <a class="go" href="https://github.com/danielcoconuts/CC_MVP">Code by Menghan Hu</a>
+    </div>
+    <div>
+    <figure class="shot">
+      <video src="media/gas-dashboard.mp4" poster="media/gas-energy.jpg" width="1600" height="1000" autoplay muted loop playsinline preload="metadata" aria-label="Screenshots of the dashboard: gas use against curve deviation for every roast, a temperature curve against its reference, a gas curve against its reference, and the prediction view"></video>
+      <figcaption>The dashboard running on our roast data. Gas use against deviation from the profile for every roast, one roast's temperature and gas curves against the reference, and the prediction view.</figcaption>
+    </figure>
+    <dl class="facts">
+      <div><dt>Roasts</dt><dd>123</dd></div>
+      <div><dt>Roaster</dt><dd>Giesen 15</dd></div>
+      <div><dt>Period</dt><dd>June 2024 to February 2026</dd></div>
+      <div><dt>Built by</dt><dd>four UvA students</dd></div>
+    </dl>
+    </div>
+  </article>
+
+  <article class="sys" id="query">
+    <div class="n">02</div>
+    <div>
+      <h2>The roastery query system</h2>
+      <p class="label">In use by the roastery team since <b>August 2026</b></p>
+      <p>A question-answering system over everything a roastery knows about its coffee: roast data, webshop orders, green quality readings, cupping notes, customer records and meeting notes. Anyone on the team asks from their phone and gets an answer that quotes the source.</p>
+      <ul>
+        <li>A small model turns the question into a fetch plan and plain Python runs the plan. A second model writes the answer from the fetched records and names the file each part came from.</li>
+        <li>Python does the arithmetic from the order ledgers, and the answer says what was excluded.</li>
+        <li>When the records don't hold the answer, the system says "I don't know".</li>
+      </ul>
+      <a class="go" href="query.html">Ask the demo a question</a>
+    </div>
+    <div>
+    <figure class="shot">
+      <a href="atlas.html"><video src="media/app-atlas.mp4" poster="media/app-atlas.jpg" width="1120" height="700" autoplay muted loop playsinline preload="metadata" aria-label="Animation: an isometric drawing of the query app, with different groups of blocks and connecting lines lit in turn"></video></a>
+      <figcaption>Map of the query app's code. Each block is a part of the program and each line is a connection. The video shows the whole app, the path of a question, the path of a dictated question, and what reads from the vault. Click to open the map.</figcaption>
+    </figure>
+    <dl class="facts">
+      <div><dt>Records</dt><dd>about 500 text files</dd></div>
+      <div><dt>Orders</dt><dd>back to 2021</dd></div>
+      <div><dt>Voice input</dt><dd>EN · NL · ES · FR</dd></div>
+      <div><dt>Demo data</dt><dd>invented roastery</dd></div>
+    </dl>
+    </div>
+  </article>
+
+  <article class="sys" id="vault">
+    <div class="n">03</div>
+    <div>
+      <h2>The cupping vault</h2>
+      <p class="label">Every cupping filed since <b>October 2025</b></p>
+      <p>Photograph the sample, talk through the cup, and the note lands in a searchable, cross-linked archive. I have cupped professionally for twenty years and most of those notes are gone. They were on paper sheets, in an app that closed, and in spreadsheets that didn't match each other.</p>
+      <ul>
+        <li>Coffee names get mangled by speech-to-text, so each dictation is checked against the lot list.</li>
+        <li>The model turns the transcript into a structured note and records only the numbers that were said.</li>
+        <li>The archive is a folder of markdown text files that any program can open, so it does not depend on a database or on one company's software.</li>
+      </ul>
+      <a class="go" href="vault.html">Watch a note get filed</a>
+    </div>
+    <div>
+    <figure class="shot">
+      <a href="vault.html"><video src="media/cupping-graph.mp4" poster="media/cupping-graph.jpg" width="1120" height="700" autoplay muted loop playsinline preload="metadata" aria-label="Animation: dots for cupping notes appear one by one and link to each other"></video></a>
+      <figcaption>The roastery's cupping notes, appearing in date order. 392 notes and 1,014 links, March 2024 to November 2026, including older notes added later.</figcaption>
+    </figure>
+    <dl class="facts">
+      <div><dt>Capture</dt><dd>photo and dictation</dd></div>
+      <div><dt>Links</dt><dd>lot · roast · past cuppings</dd></div>
+      <div><dt>Format</dt><dd>markdown</dd></div>
+    </dl>
+    </div>
+  </article>
+
+  <article class="sys" id="climate">
+    <div class="n">04</div>
+    <div>
+      <h2>Farm climate reports</h2>
+      <p class="label">Gesha Village, Ethiopia · Fazenda Pedra Preta, Brazil</p>
+      <p>Forty years of satellite and reanalysis weather for any coffee farm, corrected for the farm's real elevation and turned into a report a farm manager can act on: rainfall and dry spells, warming trends, day-night temperature range, harvest and drying windows, flowering triggers and disease risk.</p>
+      <ul>
+        <li>Python does the statistics. AI drafts the narrative from the finished numbers, and I edit it.</li>
+        <li>The demo page pulls the daily record for any coordinates and draws it while you wait.</li>
+      </ul>
+      <a class="go" href="climate.html">Run it for any farm</a>
+    </div>
+    <div>
+    <figure class="shot">
+      <a href="climate.html"><video src="media/climate.mp4" poster="media/climate.jpg" width="1280" height="800" autoplay muted loop playsinline preload="metadata" aria-label="Animation: a chart of daily rain since 1981 fills in one year at a time, then changes to temperature and to dry spells"></video></a>
+      <figcaption>The record for Volcán, Panama, 1981 to 2025. Each row is a year. The chart shows daily rain, then temperature, then dry spells of a week or more.</figcaption>
+    </figure>
+    <dl class="facts">
+      <div><dt>Sources</dt><dd>ERA5 · NASA POWER</dd></div>
+      <div><dt>Record</dt><dd>daily, 40+ years</dd></div>
+      <div><dt>Elevation correction</dt><dd>6.5 °C per 1,000 m</dd></div>
+    </dl>
+    </div>
+  </article>
+
+  <article class="sys" id="corpus">
+    <div class="n">05</div>
+    <div>
+      <h2>The coffee evaluation corpus</h2>
+      <p class="label">Research database, growing nightly · counts from <b>26 October 2026</b></p>
+      <p>A record of what people say about the flavour and quality of many, many different coffees. It can be cross-indexed to find whether varieties, origins, altitudes, roast levels and processes are described consistently, in Cup of Excellence juries and in ordinary shops.</p>
+      <ul>
+        <li>A language model running on one graphics card in my house reads each product page overnight and extracts the coffee, its descriptors and its price.</li>
+        <li>Every extracted word is checked against the page it came from. I chose the model by testing it against a hand-reviewed answer key. All of its descriptors matched the page word for word, against 42% for the faster model.</li>
+        <li>It respects robots.txt and AI-crawler opt-outs.</li>
+      </ul>
+      <a class="go" href="corpus.html">See the corpus page</a>
+    </div>
+    <div>
+    <figure class="shot">
+      <a href="corpus.html"><img src="media/corpus.jpg" width="1584" height="990" loading="lazy" alt="The corpus page: counts of coffees, descriptors and prices beside rows of flavour words in several languages"></a>
+      <figcaption>The corpus page, with flavour descriptors as the shops wrote them.</figcaption>
+    </figure>
+    <dl class="facts">
+      <div><dt>Shops</dt><dd>4,270</dd></div>
+      <div><dt>Countries</dt><dd>85</dd></div>
+      <div><dt>Coffees extracted</dt><dd>42,117</dd></div>
+      <div><dt>Price observations</dt><dd>1,145,697</dd></div>
+      <div><dt>Cup of Excellence</dt><dd>7,220 coffees, 1999–2026</dd></div>
+    </dl>
+    </div>
+  </article>
+
+  <article class="sys" id="galaxy">
+    <div class="n">06</div>
+    <div>
+      <h2>The vault galaxy</h2>
+      <p class="label">A 3D map of a roastery's notes</p>
+      <p>Every note in the roastery's records is drawn as a point of light, and every link between two notes as a thread. Notes about similar things sit close together, so the coffees, the customers, the roasts and the cuppings each form a region.</p>
+      <ul>
+        <li>Each note's position comes from the words in it. A word-embedding model places the notes, and UMAP reduces the result to three dimensions.</li>
+        <li>Tags are drawn as points too, linked to every note that uses them.</li>
+        <li>It runs in a browser from one HTML file and one data file.</li>
+      </ul>
+    </div>
+    <div>
+    <figure class="shot">
+      <video src="media/vault-galaxy.mp4" poster="media/vault-galaxy.jpg" width="1120" height="700" autoplay muted loop playsinline preload="metadata" aria-label="Animation: a slowly turning cloud of coloured points joined by faint threads"></video>
+      <figcaption>Video of the galaxy for the invented demo roastery as it rotates.</figcaption>
+    </figure>
+    <dl class="facts">
+      <div><dt>In the video</dt><dd>845 notes · 696 tags</dd></div>
+      <div><dt>Links</dt><dd>3,544</dd></div>
+      <div><dt>Demo data</dt><dd>invented roastery</dd></div>
+    </dl>
+    </div>
+  </article>
+
+  <section class="plain" id="more">
+    <p class="label">Also built</p>
+    <div class="small">
+      <div>
+        <figure class="shot"><a href="floor.html"><img src="media/roastery-floor.jpg" width="1320" height="825" loading="lazy" alt="Isometric view of a roastery floor with racks, roasters, bins and staff"></a></figure>
+        <h3>Roastery Floor</h3>
+        <p>A drag-and-drop map of the roastery showing where every bag and box of coffee is, with a shared packing plan, orders and roast intake. Every tablet and phone shows the same stock.</p>
+        <p class="label">In beta at the roastery</p>
+        <p><a href="floor.html">Try it with an invented roastery</a></p>
+      </div>
+      <div>
+        <figure class="shot"><img src="media/sample-room.jpg" width="1024" height="500" loading="lazy" alt="Sample Room: six score dials reading from 79.00 to 91.25"></figure>
+        <h3>Sample Room</h3>
+        <p>A cupping app for Android. SCA 2004, CVA and Cup of Excellence forms, blind cupping with codes and a reveal, dictation, and offline calibration between cuppers.</p>
+        <p class="label">In testing</p>
+      </div>
+      <div>
+        <h3>Omix bridge</h3>
+        <p>Reads moisture, density and roast colour from a DiFluid Omix over Bluetooth and links each reading to its roast in Giesen Cloud, from a Windows laptop.</p>
+        <p class="label">Working on our own Omix</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="plain" id="rules">
+    <h2>How I build these</h2>
+    <p class="how">In all of these systems, Python does the calculations and a language model writes up the results. Each answer names the record it came from, and the records are kept as plain text files. I capture notes by voice and by photo, at the cupping table and on the roastery floor. I built all of it myself with AI coding tools while working as a roaster.</p>
+  </section>
+
+  <section class="plain" id="coffee">
+    <h2>Twenty years in coffee</h2>
+    <ul class="cv">
+      <li>Barista, Seattle, 2003 to 2006.</li>
+      <li>Independent barista trainer, New York, 2006 to 2009.</li>
+      <li>Independent roasting consultant to cafés and small roasters, New York, 2006 to 2009.</li>
+      <li>Director of Coffee, Cafe Grumpy, New York, 2007.</li>
+      <li>Founder, New York Coffee Society.</li>
+      <li>Host, New York Coffee Society public tastings, New York and Seattle.</li>
+      <li>Trainer, Intelligentsia Coffee SoHo lab, New York, 2008.</li>
+      <li>Passed the Q exam, San Salvador, El Salvador, 2008.</li>
+      <li>Instructor, cupping classes, New York.</li>
+      <li>Instructor, latte art classes, New York.</li>
+      <li>Organiser, free events for baristas, New York.</li>
+      <li>Host, coffee and dinner tasting, New York. Written up in a magazine.</li>
+      <li>Author, two coffee blogs, 2006 to 2009.</li>
+      <li>Guest, the Today Show, with Kathie Lee Gifford and Hoda Kotb. Subject: making good coffee at home.</li>
+      <li>Coffee consultant, Pernod Ricard, for the Kahlúa brand. Product tasting and evaluation, glassware, drink development. Absolut headquarters, Stockholm.</li>
+      <li>Presenter, Kahlúa barista events, Sacramento and Los Angeles.</li>
+      <li>Assistant to Willem Boot, Boot Coffee Consulting, from 2007.</li>
+      <li>First origin assignment, El Salvador.</li>
+      <li>First origin assignment, Ethiopia.</li>
+      <li>Consultant, Boot Coffee Consulting, full time, 2010 to 2015.</li>
+      <li>Instructor, roasting courses, Boot Coffee lab, Mill Valley, California.</li>
+      <li>Instructor, cupping courses, Boot Coffee lab, Mill Valley, California.</li>
+      <li>Instructor, sensory evaluation classes for professionals and for the public.</li>
+      <li>Leader, Cupping Caravan, Ethiopia. Route scouting, hosting of international buyers, sample roasting and cupping in producing communities.</li>
+      <li>Leader, Cupping Caravan, Honduras.</li>
+      <li>Leader, buyer tours, Honduras.</li>
+      <li>Leader, buyer tours, Panama.</li>
+      <li>Cupping trainer for coffee producers.</li>
+      <li>Researcher, variety and soil study for the USDA, Puerto Rico, with Willem Boot, about 2012. Samples from dozens of producers, identical processing, university soil analysis, three blind cuppings in San Francisco, 30-page report.</li>
+      <li>Head judge, Taste of Harvest, Ethiopia, 2013.</li>
+      <li>Work with producers in El Salvador, Guatemala, Honduras, Nicaragua, Panama, Colombia, Ecuador, Peru, Brazil, Ethiopia, Philippines, Indonesia, Puerto Rico.</li>
+      <li>Consulting, roasting, events and training: United States, Netherlands, United Kingdom, Sweden, China, South Korea, Philippines, Thailand, Singapore, Taiwan.</li>
+      <li>Co-founder, Origin Coffee Network, green coffee importer, incorporated in Singapore, 2015 to 2016. Partners in Singapore, Manila and Bangkok.</li>
+      <li>Manager, Philippines operations, Origin Coffee Network, Manila.</li>
+      <li>Importer of green coffee from Panama and Brazil for sale in Southeast Asia.</li>
+      <li>Cupping team member, wild Mokka variety, Bukidnon, Mindanao. Brought to market in Japan.</li>
+      <li>Host, Coffee and Mind tasting event, Philippines.</li>
+      <li>Roastery and café setup, Coffee &amp; Coconuts, Bali, 2018.</li>
+      <li>Head Roaster, Coffee &amp; Coconuts, Amsterdam, 2020 to present.</li>
+      <li>Roastery build, Coffee &amp; Coconuts, Amsterdam, 2020.</li>
+      <li>Green coffee sourcing, Coffee &amp; Coconuts.</li>
+      <li>Roast profile development, Coffee &amp; Coconuts.</li>
+      <li>Quality control, Coffee &amp; Coconuts.</li>
+      <li>Production management, Coffee &amp; Coconuts.</li>
+      <li>Annual production: 1.2 tonnes in 2021, 8.4 in 2022, 13.3 in 2023, 19.7 in 2024, 35.8 in 2025.</li>
+      <li>Trainer of three baristas into roasters and cuppers, Coffee &amp; Coconuts.</li>
+      <li>Consultant, Gloria Jean's Coffees, Istanbul, 2023.</li>
+      <li>Three sourcing trips to Brazil, including Guaxupé, 2024.</li>
+      <li>Cupping at Fazenda Pedra Preta, Brazil, September 2025.</li>
+      <li>Roaster in Europe for Flora Regenerative Coffee, Fazenda Pedra Preta, Brazil.</li>
+      <li>Largest single wholesale shipment, 1,500 kg, May 2025.</li>
+      <li>Author, roasting course outline, Najjar Training Academy, 2025.</li>
+      <li>Climate analysis, Finca La Cabra, Panama, 44 years of record, December 2025.</li>
+      <li>Climate analysis, Gesha Village, Ethiopia, coffee wilt disease risk, January 2026.</li>
+      <li>Weather analysis, Fazenda Pedra Preta, Brazil, four years of station data.</li>
+      <li>Migration of production to a 30 kg roaster, 2026.</li>
+      <li>Gas use dashboard for Coffee &amp; Coconuts, built by a student team in AI in je Bedrijf, University of Amsterdam and Amsterdam University of Applied Sciences, 2026.</li>
+      <li>Analysis of 1,310 CQI-graded coffees on the SCA 2004 cupping form, 2026.</li>
+      <li>Literature degree, University of Washington.</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  <a href="mailto:coffeedataanalysis@proton.me">coffeedataanalysis@proton.me</a>
+  <span>Daniel Humphries · Amsterdam · This site sets no cookies and tracks nothing.</span>
+</footer>
+
+</div>
+<script>
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches)
+    for (const v of document.querySelectorAll("video")) { v.removeAttribute("autoplay"); v.pause(); v.controls = true; }
+</script>
+</body>
+</html>
